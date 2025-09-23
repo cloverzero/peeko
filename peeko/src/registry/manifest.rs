@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -8,6 +10,12 @@ pub enum Manifest {
 
     #[serde(rename = "application/vnd.docker.distribution.manifest.list.v2+json")]
     ManifestList(ManifestList),
+
+    #[serde(rename = "application/vnd.oci.image.manifest.v1+json")]
+    OCIManifest(ImageManifest),
+
+    #[serde(rename = "application/vnd.oci.image.index.v1+json")]
+    OCIIndex(ManifestList),
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -18,6 +26,10 @@ pub struct ImageManifest {
     pub media_type: String,
     pub config: Descriptor,
     pub layers: Vec<Descriptor>,
+
+    // for oci index
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub annotations: Option<HashMap<String, String>>,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -26,6 +38,10 @@ pub struct Descriptor {
     #[serde(rename = "mediaType")]
     pub media_type: String,
     pub size: u64,
+
+    // for oci index
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub annotations: Option<HashMap<String, String>>,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -44,6 +60,8 @@ pub struct PlatformManifest {
     pub media_type: String,
     pub platform: Platform,
     pub size: u64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub annotations: Option<HashMap<String, String>>,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
