@@ -1,16 +1,20 @@
 use anyhow;
 use reqwest;
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
-use std::time::Duration;
 
-use crate::registry::manifest;
+use super::manifest::{Manifest, ManifestList};
 
 #[derive(Debug, Deserialize, Serialize)]
 struct TokenResponse {
     pub token: Option<String>,
     pub access_token: Option<String>,
     pub expires_in: Option<u64>,
+}
+
+struct PlatformParam {
+    architecture: Option<String>,
+    os: Option<String>,
+    variant: Option<String>,
 }
 
 #[derive(Clone)]
@@ -131,7 +135,7 @@ impl RegistryClient {
         &mut self,
         image: &str,
         tag_or_digest: &str,
-    ) -> anyhow::Result<manifest::Manifest> {
+    ) -> anyhow::Result<Manifest> {
         let url = format!(
             "{}/v2/{}/manifests/{}",
             self.registry_url, image, tag_or_digest
@@ -154,27 +158,100 @@ impl RegistryClient {
             .to_str()?;
 
         match content_type {
-            "application/vnd.docker.distribution.manifest.v2+json" => {
-                let image_manifest: manifest::ImageManifest = response.json().await?;
-                Ok(manifest::Manifest::ImageManifest(image_manifest))
+            "application/vnd.oci.image.manifest.v1+json"
+            | "application/vnd.docker.distribution.manifest.v2+json" => {
+                Ok(Manifest::OCIManifest(response.json().await?))
             }
-            "application/vnd.docker.distribution.manifest.list.v2+json" => {
-                let manifest_list: manifest::ManifestList = response.json().await?;
-                Ok(manifest::Manifest::ManifestList(manifest_list))
-            }
-            "application/vnd.oci.image.manifest.v1+json" => {
-                let image_manifest: manifest::ImageManifest = response.json().await?;
-                Ok(manifest::Manifest::OCIManifest(image_manifest))
-            }
-            "application/vnd.oci.image.index.v1+json" => {
-                let manifest_list: manifest::ManifestList = response.json().await?;
-                Ok(manifest::Manifest::OCIIndex(manifest_list))
+            "application/vnd.oci.image.index.v1+json"
+            | "application/vnd.docker.distribution.manifest.list.v2+json" => {
+                Ok(Manifest::OCIIndex(response.json().await?))
             }
             _ => Err(anyhow::anyhow!(
                 "Unsupported content type: {}",
                 content_type
             )),
         }
+    }
+
+    pub async fn download_image(
+        &mut self,
+        image: &str,
+        tag: &str,
+        platform: PlatformParam,
+    ) -> anyhow::Result<()> {
+        let manifest = self.get_image_manifest(image, tag).await?;
+
+        let image_manifest = match manifest {
+            Manifest::OCIManifest(oci_manifest) => Some(oci_manifest),
+            Manifest::OCIIndex(manifest_list) => {
+                let target = self.match_manifest(&manifest_list, &platform);
+                match target {
+                    Some(target) => {
+                        let manifest = self.get_image_manifest(image, &target.digest).await?;
+                        if let Manifest::OCIManifest(oci_manifest) = manifest {
+                            Some(oci_manifest)
+                        } else {
+                            None
+                        }
+                    }
+                    None => None,
+                }
+            }
+        };
+
+        if let Some(image_manifest) = image_manifest {
+            println!("Image manifest: {:?}", image_manifest);
+        } else {
+            return Err(anyhow::anyhow!("No image manifest found"));
+        }
+
+        Ok(())
+    }
+
+    async fn download_layer(&mut self, image: &str, digest: &str) -> anyhow::Result<()> {
+        let url = format!("{}/v2/{}/blobs/{}", self.registry_url, image, digest);
+        let response = self.with_auth(self.http.get(url)).send().await?;
+        if !response.status().is_success() {
+            return Err(anyhow::anyhow!(
+                "Failed to download layer: HTTP {}",
+                response.status()
+            ));
+        }
+        let bytes = response.bytes().await?;
+
+        Ok(())
+    }
+
+    fn match_manifest<'a>(
+        &self,
+        manifest_list: &'a ManifestList,
+        platform: &PlatformParam,
+    ) -> Option<&'a super::manifest::PlatformManifest> {
+        if let (None, None, None) = (&platform.architecture, &platform.os, &platform.variant) {
+            let first = manifest_list.manifests.first();
+            return first;
+        }
+        let target = manifest_list.manifests.iter().find(|m| {
+            if let Some(arch) = &platform.architecture {
+                if m.platform.architecture.ne(arch) {
+                    return false;
+                }
+            }
+            if let Some(os) = &platform.os {
+                if m.platform.os.ne(os) {
+                    return false;
+                }
+            }
+            if let (Some(variant), Some(m_variant)) = (&platform.variant, &m.platform.variant) {
+                if variant.ne(m_variant) {
+                    return false;
+                }
+            }
+
+            true
+        });
+
+        target
     }
 }
 
@@ -190,5 +267,22 @@ mod tests {
             .await
             .unwrap();
         println!("Image manifest: {:?}", image_manifest);
+    }
+
+    #[tokio::test]
+    async fn test_download_image() {
+        let mut client = RegistryClient::new("https://registry-1.docker.io");
+        client
+            .download_image(
+                "library/hello-world",
+                "latest",
+                PlatformParam {
+                    architecture: None,
+                    os: None,
+                    variant: None,
+                },
+            )
+            .await
+            .unwrap();
     }
 }

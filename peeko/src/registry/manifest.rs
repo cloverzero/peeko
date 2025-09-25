@@ -5,12 +5,6 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(tag = "mediaType")]
 pub enum Manifest {
-    #[serde(rename = "application/vnd.docker.distribution.manifest.v2+json")]
-    ImageManifest(ImageManifest),
-
-    #[serde(rename = "application/vnd.docker.distribution.manifest.list.v2+json")]
-    ManifestList(ManifestList),
-
     #[serde(rename = "application/vnd.oci.image.manifest.v1+json")]
     OCIManifest(ImageManifest),
 
