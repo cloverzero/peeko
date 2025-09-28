@@ -1,6 +1,9 @@
 use anyhow;
+use futures_util::StreamExt;
 use reqwest;
 use serde::{Deserialize, Serialize};
+use tokio::fs::{self, File};
+use tokio::io::AsyncWriteExt;
 
 use super::manifest::{Manifest, ManifestList};
 
@@ -11,7 +14,7 @@ struct TokenResponse {
     pub expires_in: Option<u64>,
 }
 
-struct PlatformParam {
+pub struct PlatformParam {
     architecture: Option<String>,
     os: Option<String>,
     variant: Option<String>,
@@ -199,17 +202,27 @@ impl RegistryClient {
             }
         };
 
-        if let Some(image_manifest) = image_manifest {
-            println!("Image manifest: {:?}", image_manifest);
-        } else {
-            return Err(anyhow::anyhow!("No image manifest found"));
+        let oci_manifest =
+            image_manifest.ok_or_else(|| anyhow::anyhow!("No image manifest found"))?;
+
+        let folder_path = format!("{}/{}", image, tag);
+        fs::create_dir_all(&folder_path).await?;
+        for layer in oci_manifest.layers {
+            self.download_layer(image, &layer.digest, &folder_path)
+                .await?;
         }
 
         Ok(())
     }
 
-    async fn download_layer(&mut self, image: &str, digest: &str) -> anyhow::Result<()> {
+    async fn download_layer(
+        &mut self,
+        image: &str,
+        digest: &str,
+        dest_path: &str,
+    ) -> anyhow::Result<()> {
         let url = format!("{}/v2/{}/blobs/{}", self.registry_url, image, digest);
+        println!("Downloading layer: {}", url);
         let response = self.with_auth(self.http.get(url)).send().await?;
         if !response.status().is_success() {
             return Err(anyhow::anyhow!(
@@ -217,7 +230,16 @@ impl RegistryClient {
                 response.status()
             ));
         }
-        let bytes = response.bytes().await?;
+
+        let mut file = File::create(format!("{}/{}", dest_path, digest)).await?;
+        let mut stream = response.bytes_stream();
+
+        while let Some(chunk) = stream.next().await {
+            let chunk = chunk?;
+            file.write_all(&chunk).await?;
+        }
+
+        file.flush().await?;
 
         Ok(())
     }
@@ -274,8 +296,8 @@ mod tests {
         let mut client = RegistryClient::new("https://registry-1.docker.io");
         client
             .download_image(
-                "library/hello-world",
-                "latest",
+                "library/node",
+                "24-alpine",
                 PlatformParam {
                     architecture: None,
                     os: None,
