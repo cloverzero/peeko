@@ -1,5 +1,5 @@
 use anyhow;
-use futures_util::StreamExt;
+use futures_util::{StreamExt, TryStreamExt, stream};
 use reqwest;
 use serde::{Deserialize, Serialize};
 use tokio::fs::{self, File};
@@ -19,6 +19,8 @@ pub struct PlatformParam {
     os: Option<String>,
     variant: Option<String>,
 }
+
+const MAX_CONCURRENT_DOWNLOADS: usize = 3;
 
 #[derive(Clone)]
 pub struct RegistryClient {
@@ -207,16 +209,22 @@ impl RegistryClient {
 
         let folder_path = format!("{}/{}", image, tag);
         fs::create_dir_all(&folder_path).await?;
-        for layer in oci_manifest.layers {
-            self.download_layer(image, &layer.digest, &folder_path)
-                .await?;
-        }
+
+        let tasks = oci_manifest
+            .layers
+            .iter()
+            .map(|layer| self.download_layer(image, &layer.digest, &folder_path));
+
+        stream::iter(tasks)
+            .buffer_unordered(MAX_CONCURRENT_DOWNLOADS)
+            .try_collect::<Vec<_>>()
+            .await?;
 
         Ok(())
     }
 
     async fn download_layer(
-        &mut self,
+        &self,
         image: &str,
         digest: &str,
         dest_path: &str,
