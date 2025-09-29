@@ -69,3 +69,13 @@ pub struct Platform {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub variant: Option<String>,
 }
+
+pub fn get_file_type(media_type: &str) -> &str {
+    match media_type.rsplit_once('+') {
+        Some((_, ext)) => ext,
+        None => match media_type.rsplit_once('.') {
+            Some((_, ext)) => ext,
+            None => "tar",
+        },
+    }
+}

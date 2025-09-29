@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use tokio::fs::{self, File};
 use tokio::io::AsyncWriteExt;
 
-use super::manifest::{Manifest, ManifestList};
+use super::manifest::{Descriptor, Manifest, ManifestList};
 
 #[derive(Debug, Deserialize, Serialize)]
 struct TokenResponse {
@@ -207,13 +207,19 @@ impl RegistryClient {
         let oci_manifest =
             image_manifest.ok_or_else(|| anyhow::anyhow!("No image manifest found"))?;
 
+        // create folder
         let folder_path = format!("{}/{}", image, tag);
         fs::create_dir_all(&folder_path).await?;
 
+        // download config
+        self.download(image, &oci_manifest.config, &folder_path)
+            .await?;
+
+        // download layers
         let tasks = oci_manifest
             .layers
             .iter()
-            .map(|layer| self.download_layer(image, &layer.digest, &folder_path));
+            .map(|layer| self.download(image, &layer, &folder_path));
 
         stream::iter(tasks)
             .buffer_unordered(MAX_CONCURRENT_DOWNLOADS)
@@ -223,14 +229,16 @@ impl RegistryClient {
         Ok(())
     }
 
-    async fn download_layer(
+    async fn download(
         &self,
         image: &str,
-        digest: &str,
+        descriptor: &Descriptor,
         dest_path: &str,
     ) -> anyhow::Result<()> {
-        let url = format!("{}/v2/{}/blobs/{}", self.registry_url, image, digest);
-        println!("Downloading layer: {}", url);
+        let url = format!(
+            "{}/v2/{}/blobs/{}",
+            self.registry_url, image, descriptor.digest
+        );
         let response = self.with_auth(self.http.get(url)).send().await?;
         if !response.status().is_success() {
             return Err(anyhow::anyhow!(
@@ -239,7 +247,9 @@ impl RegistryClient {
             ));
         }
 
-        let mut file = File::create(format!("{}/{}", dest_path, digest)).await?;
+        let file_type = super::manifest::get_file_type(&descriptor.media_type);
+        let mut file =
+            File::create(format!("{}/{}.{}", dest_path, descriptor.digest, file_type)).await?;
         let mut stream = response.bytes_stream();
 
         while let Some(chunk) = stream.next().await {
