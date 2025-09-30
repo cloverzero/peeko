@@ -1,5 +1,4 @@
-mod config;
+mod archive_utils;
 mod image_reader;
-mod vfs;
 
 pub use image_reader::ImageReader;

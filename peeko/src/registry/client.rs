@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use tokio::fs::{self, File};
 use tokio::io::AsyncWriteExt;
 
-use super::manifest::{Descriptor, Manifest, ManifestList};
+use crate::manifest::{self, Descriptor, Manifest, ManifestList, PlatformManifest};
 
 #[derive(Debug, Deserialize, Serialize)]
 struct TokenResponse {
@@ -211,6 +211,11 @@ impl RegistryClient {
         let folder_path = format!("{}/{}", image, tag);
         fs::create_dir_all(&folder_path).await?;
 
+        let manifest_path = format!("{}/manifest.json", folder_path);
+        let manifest_file = std::fs::File::create(manifest_path)?;
+        let writer = std::io::BufWriter::new(manifest_file);
+        serde_json::to_writer_pretty(writer, &oci_manifest)?;
+
         // download config
         self.download(image, &oci_manifest.config, &folder_path)
             .await?;
@@ -247,7 +252,7 @@ impl RegistryClient {
             ));
         }
 
-        let file_type = super::manifest::get_file_type(&descriptor.media_type);
+        let file_type = manifest::get_file_type(&descriptor.media_type);
         let mut file =
             File::create(format!("{}/{}.{}", dest_path, descriptor.digest, file_type)).await?;
         let mut stream = response.bytes_stream();
@@ -266,7 +271,7 @@ impl RegistryClient {
         &self,
         manifest_list: &'a ManifestList,
         platform: &PlatformParam,
-    ) -> Option<&'a super::manifest::PlatformManifest> {
+    ) -> Option<&'a PlatformManifest> {
         if let (None, None, None) = (&platform.architecture, &platform.os, &platform.variant) {
             let first = manifest_list.manifests.first();
             return first;

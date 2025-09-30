@@ -1,63 +1,114 @@
-use std::{
-    collections::HashMap,
-    path::{Path, PathBuf},
-};
+use std::path::{Path, PathBuf};
 
 use tokio::fs;
 
-use crate::reader::config::ImageConfig;
-
-use super::vfs::VirtualFileSystem;
+use super::archive_utils;
+use crate::fs::{FileEntry, VirtualFileSystem};
+use crate::manifest::{ImageManifest, get_file_type};
 
 pub struct ImageReader {
     image_dir: PathBuf,
-    fs: VirtualFileSystem,
 }
 
 impl ImageReader {
     pub fn new<P: AsRef<Path>>(image_dir: P) -> Self {
         Self {
             image_dir: image_dir.as_ref().to_path_buf(),
-            fs: VirtualFileSystem::new(),
         }
     }
 
-    async fn load_dir(&self) -> anyhow::Result<HashMap<String, String>> {
-        let mut file_map = HashMap::new();
-        let mut entries = fs::read_dir(&self.image_dir).await?;
-        while let Some(entry) = entries.next_entry().await? {
-            let metadata = entry.metadata().await?;
-            if metadata.is_file() {
-                let file_name = entry.file_name();
-                let file_name = file_name.to_string_lossy();
-                if let Some((name, ext)) = file_name.rsplit_once('.') {
-                    file_map.insert(name.to_string(), ext.to_string());
+    async fn load_manifest(&self) -> anyhow::Result<ImageManifest> {
+        let manifest_path = self.image_dir.join("manifest.json");
+        let manifest = fs::read_to_string(manifest_path).await?;
+        let manifest: ImageManifest = serde_json::from_str(&manifest)?;
+        Ok(manifest)
+    }
+
+    pub async fn reconstruct(&mut self) -> anyhow::Result<VirtualFileSystem> {
+        let manifest = self.load_manifest().await?;
+        let mut vfs = VirtualFileSystem::new();
+        for (layer_index, layer) in manifest.layers.iter().enumerate() {
+            let file_type = get_file_type(&layer.media_type);
+            let layer_path = self
+                .image_dir
+                .join(format!("{}.{}", layer.digest, file_type));
+            self.load_layer(layer_path, file_type, layer_index, &mut vfs)
+                .await?;
+        }
+
+        Ok(vfs)
+    }
+
+    async fn load_layer(
+        &mut self,
+        layer_path: PathBuf,
+        file_type: &str,
+        layer_index: usize,
+        vfs: &mut VirtualFileSystem,
+    ) -> anyhow::Result<()> {
+        let mut archive = match file_type {
+            "tar" => archive_utils::read_tar_file(layer_path)?,
+            "gzip" => archive_utils::read_gzip_file(layer_path)?,
+            "zstd" => archive_utils::read_zstd_file(layer_path)?,
+            _ => return Err(anyhow::anyhow!("Unsupported file type: {}", file_type)),
+        };
+
+        for entry in archive.entries()? {
+            let entry = entry?;
+            let path = entry.path()?.to_path_buf();
+            let header = entry.header();
+
+            // 处理 whiteout 文件
+            if let Some(filename) = path.file_name() {
+                let filename_str = filename.to_string_lossy();
+
+                if filename_str.starts_with(".wh.") {
+                    if filename_str == ".wh..wh..opq" {
+                        // 删除整个目录内容
+                        if let Some(parent) = path.parent() {
+                            println!("  Clearing directory: {:?}", parent);
+                            vfs.clear_directory(parent);
+                        }
+                    } else {
+                        // 删除特定文件
+                        let target_name = filename_str.strip_prefix(".wh.").unwrap();
+                        if let Some(parent) = path.parent() {
+                            let target_path = parent.join(target_name);
+                            println!("  Removing (whiteout): {:?}", target_path);
+                            vfs.delete_entry(&target_path);
+                        }
+                    }
+                    continue;
                 }
             }
+
+            match header.entry_type() {
+                tar::EntryType::Regular => vfs.add_entry(
+                    path,
+                    FileEntry::File {
+                        size: entry.size(),
+                        layer_index,
+                    },
+                ),
+                tar::EntryType::Directory => {
+                    vfs.add_entry(path, FileEntry::Directory { layer_index })
+                }
+                tar::EntryType::Symlink | tar::EntryType::Link => {
+                    if let Ok(link_name) = header.link_name() {
+                        if let Some(link_name) = link_name {
+                            vfs.add_entry(
+                                path,
+                                FileEntry::Symlink {
+                                    target: link_name.to_string_lossy().to_string(),
+                                    layer_index,
+                                },
+                            );
+                        }
+                    }
+                }
+                _ => {}
+            }
         }
-        Ok(file_map)
-    }
-
-    async fn load_config(
-        &self,
-        file_map: &HashMap<String, String>,
-    ) -> anyhow::Result<Option<ImageConfig>> {
-        let config_file = file_map.iter().find(|(_, ext)| *ext == "json");
-        if let Some((name, _)) = config_file {
-            let config_path = self.image_dir.join(format!("{}.json", name));
-            let json = fs::read_to_string(config_path).await?;
-            let image_config: ImageConfig = ImageConfig::from_str(&json)?;
-            return Ok(Some(image_config));
-        }
-
-        Ok(None)
-    }
-
-    pub async fn reconstruct(&mut self) -> anyhow::Result<()> {
-        let file_map = self.load_dir().await?;
-        let config = self.load_config(&file_map).await?;
-        let config = config.ok_or_else(|| anyhow::anyhow!("No config found"))?;
-
         Ok(())
     }
 }
@@ -68,7 +119,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_reconstruct() {
-        let mut reader = ImageReader::new("library/hello-world/latest");
+        let mut reader = ImageReader::new("library/node/24-alpine");
         reader.reconstruct().await.unwrap();
     }
 }
