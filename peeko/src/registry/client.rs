@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use anyhow;
 use futures_util::{StreamExt, TryStreamExt, stream};
 use reqwest;
@@ -5,6 +7,7 @@ use serde::{Deserialize, Serialize};
 use tokio::fs::{self, File};
 use tokio::io::AsyncWriteExt;
 
+use crate::env;
 use crate::manifest::{self, Descriptor, Manifest, ManifestList, PlatformManifest};
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -15,12 +18,10 @@ struct TokenResponse {
 }
 
 pub struct PlatformParam {
-    architecture: Option<String>,
-    os: Option<String>,
-    variant: Option<String>,
+    pub architecture: Option<String>,
+    pub os: Option<String>,
+    pub variant: Option<String>,
 }
-
-const MAX_CONCURRENT_DOWNLOADS: usize = 3;
 
 #[derive(Clone)]
 pub struct RegistryClient {
@@ -208,10 +209,11 @@ impl RegistryClient {
             image_manifest.ok_or_else(|| anyhow::anyhow!("No image manifest found"))?;
 
         // create folder
-        let folder_path = format!("{}/{}", image, tag);
+        let peeko_dir = env::get_peeko_dir();
+        let folder_path = peeko_dir.join(format!("{}/{}", image, tag));
         fs::create_dir_all(&folder_path).await?;
 
-        let manifest_path = format!("{}/manifest.json", folder_path);
+        let manifest_path = folder_path.join("manifest.json");
         let manifest_file = std::fs::File::create(manifest_path)?;
         let writer = std::io::BufWriter::new(manifest_file);
         serde_json::to_writer_pretty(writer, &oci_manifest)?;
@@ -227,7 +229,7 @@ impl RegistryClient {
             .map(|layer| self.download(image, &layer, &folder_path));
 
         stream::iter(tasks)
-            .buffer_unordered(MAX_CONCURRENT_DOWNLOADS)
+            .buffer_unordered(env::get_concurrent_downloads())
             .try_collect::<Vec<_>>()
             .await?;
 
@@ -238,7 +240,7 @@ impl RegistryClient {
         &self,
         image: &str,
         descriptor: &Descriptor,
-        dest_path: &str,
+        dest_path: &PathBuf,
     ) -> anyhow::Result<()> {
         let url = format!(
             "{}/v2/{}/blobs/{}",
@@ -254,7 +256,7 @@ impl RegistryClient {
 
         let file_type = manifest::get_file_type(&descriptor.media_type);
         let mut file =
-            File::create(format!("{}/{}.{}", dest_path, descriptor.digest, file_type)).await?;
+            File::create(dest_path.join(format!("{}.{}", descriptor.digest, file_type))).await?;
         let mut stream = response.bytes_stream();
 
         while let Some(chunk) = stream.next().await {

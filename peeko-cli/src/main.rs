@@ -1,3 +1,81 @@
-fn main() {
-    println!("Hello, world!");
+use clap::{Parser, Subcommand};
+use anyhow::Result;
+
+mod interactive;
+mod commands;
+mod utils;
+
+#[derive(Parser)]
+#[command(name = "peeko")]
+#[command(about = "Container image filesystem explorer")]
+#[command(version = "0.1.0")]
+struct Cli {
+    #[command(subcommand)]
+    command: Option<Commands>,
+}
+
+#[derive(Subcommand)]
+enum Commands {
+    /// Pull a container image from registry
+    Pull {
+        /// Image name (e.g., library/node, nginx)
+        image: String,
+        /// Image tag (default: latest)
+        #[arg(short, long, default_value = "latest")]
+        tag: String,
+        /// Registry URL (default: Docker Hub)
+        #[arg(short, long, default_value = "https://registry-1.docker.io")]
+        registry: String,
+    },
+    /// List downloaded images
+    List,
+    /// Show image filesystem tree
+    Tree {
+        /// Image name
+        image: String,
+        /// Image tag
+        #[arg(short, long, default_value = "latest")]
+        tag: String,
+        /// Maximum depth to show
+        #[arg(short, long, default_value = "3")]
+        depth: usize,
+        /// Maximum items per level
+        #[arg(short, long, default_value = "10")]
+        max_items: usize,
+    },
+    /// Show image statistics
+    Stats {
+        /// Image name
+        image: String,
+        /// Image tag
+        #[arg(short, long, default_value = "latest")]
+        tag: String,
+    },
+    /// Start interactive mode
+    Interactive,
+}
+
+#[tokio::main]
+async fn main() -> Result<()> {
+    let cli = Cli::parse();
+
+    match cli.command {
+        Some(Commands::Pull { image, tag, registry }) => {
+            commands::pull::execute(&image, &tag, &registry).await?;
+        }
+        Some(Commands::List) => {
+            commands::list::execute().await?;
+        }
+        Some(Commands::Tree { image, tag, depth, max_items }) => {
+            commands::tree::execute(&image, &tag, depth, max_items).await?;
+        }
+        Some(Commands::Stats { image, tag }) => {
+            commands::stats::execute(&image, &tag).await?;
+        }
+        Some(Commands::Interactive) | None => {
+            interactive::run().await?;
+        }
+    }
+
+    Ok(())
 }

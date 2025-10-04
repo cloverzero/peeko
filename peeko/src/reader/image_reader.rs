@@ -115,11 +115,16 @@ impl ImageReader {
 
 #[cfg(test)]
 mod tests {
+    use crate::stats;
+
     use super::*;
 
     #[tokio::test]
     async fn test_reconstruct() {
         let mut reader = ImageReader::new("library/node/24-alpine");
-        reader.reconstruct().await.unwrap();
+        let vfs = reader.reconstruct().await.unwrap();
+        stats::show_statistics(&vfs);
+        stats::show_tree(&vfs, 3, 10);
+        stats::list_top_level(&vfs);
     }
 }

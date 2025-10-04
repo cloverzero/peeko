@@ -1,7 +1,9 @@
+pub mod env;
 pub mod fs;
 pub mod manifest;
 pub mod reader;
 pub mod registry;
+pub mod stats;
 
 pub fn add(left: u64, right: u64) -> u64 {
     left + right

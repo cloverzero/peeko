@@ -1,3 +1,3 @@
-mod client;
+pub mod client;
 
-pub use client::RegistryClient;
+pub use client::{RegistryClient, PlatformParam};
