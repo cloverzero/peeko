@@ -3,6 +3,8 @@ use console::style;
 use std::fs;
 use tabled::{Table, Tabled};
 
+use peeko::env;
+
 use crate::utils;
 
 #[derive(Tabled)]
@@ -23,33 +25,32 @@ pub async fn execute() -> Result<()> {
     let mut images = Vec::new();
 
     // Scan for downloaded images
-    if let Ok(entries) = fs::read_dir(".") {
-        for entry in entries.flatten() {
-            if entry.file_type().map(|ft| ft.is_dir()).unwrap_or(false) {
-                let image_name = entry.file_name().to_string_lossy().to_string();
+    let entries = fs::read_dir(env::get_peeko_dir())?;
+    for entry in entries.flatten() {
+        if entry.file_type().map(|ft| ft.is_dir()).unwrap_or(false) {
+            let image_name = entry.file_name().to_string_lossy().to_string();
 
-                // Skip non-image directories
-                if image_name.starts_with('.') || image_name == "target" {
-                    continue;
-                }
+            // Skip non-image directories
+            if image_name.starts_with('.') || image_name == "target" {
+                continue;
+            }
 
-                if let Ok(tag_entries) = fs::read_dir(entry.path()) {
-                    for tag_entry in tag_entries.flatten() {
-                        if tag_entry.file_type().map(|ft| ft.is_dir()).unwrap_or(false) {
-                            let tag_name = tag_entry.file_name().to_string_lossy().to_string();
+            if let Ok(tag_entries) = fs::read_dir(entry.path()) {
+                for tag_entry in tag_entries.flatten() {
+                    if tag_entry.file_type().map(|ft| ft.is_dir()).unwrap_or(false) {
+                        let tag_name = tag_entry.file_name().to_string_lossy().to_string();
 
-                            // Check if manifest.json exists
-                            let manifest_path = tag_entry.path().join("manifest.json");
-                            if manifest_path.exists() {
-                                let size = calculate_directory_size(&tag_entry.path()).unwrap_or(0);
+                        // Check if manifest.json exists
+                        let manifest_path = tag_entry.path().join("manifest.json");
+                        if manifest_path.exists() {
+                            let size = calculate_directory_size(&tag_entry.path()).unwrap_or(0);
 
-                                images.push(ImageInfo {
-                                    name: image_name.clone(),
-                                    tag: tag_name,
-                                    size: utils::format_size(size),
-                                    status: style("✅ Ready").green().to_string(),
-                                });
-                            }
+                            images.push(ImageInfo {
+                                name: image_name.clone(),
+                                tag: tag_name,
+                                size: utils::format_size(size),
+                                status: style("✅ Ready").green().to_string(),
+                            });
                         }
                     }
                 }

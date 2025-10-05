@@ -1,7 +1,9 @@
 use std::path::PathBuf;
+use std::sync::Arc;
 
 use anyhow;
 use futures_util::{StreamExt, TryStreamExt, stream};
+use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 use reqwest;
 use serde::{Deserialize, Serialize};
 use tokio::fs::{self, File};
@@ -30,6 +32,7 @@ pub struct RegistryClient {
     auth_token: Option<String>,
     username: Option<String>,
     password: Option<String>,
+    show_progress: bool,
 }
 
 impl RegistryClient {
@@ -40,6 +43,7 @@ impl RegistryClient {
             auth_token: None,
             username: None,
             password: None,
+            show_progress: false,
         }
     }
 
@@ -54,6 +58,11 @@ impl RegistryClient {
         let mut client = Self::new(registry_url);
         client.auth_token = Some(token.to_string());
         client
+    }
+
+    pub fn with_progress(mut self, show_progress: bool) -> Self {
+        self.show_progress = show_progress;
+        self
     }
 
     async fn authenticate_if_needed(&mut self, url: &str) -> anyhow::Result<()> {
@@ -218,15 +227,26 @@ impl RegistryClient {
         let writer = std::io::BufWriter::new(manifest_file);
         serde_json::to_writer_pretty(writer, &oci_manifest)?;
 
+        let multi_progress = if self.show_progress {
+            Some(Arc::new(MultiProgress::new()))
+        } else {
+            None
+        };
+
         // download config
-        self.download(image, &oci_manifest.config, &folder_path)
-            .await?;
+        self.download(
+            image,
+            &oci_manifest.config,
+            &folder_path,
+            multi_progress.clone(),
+        )
+        .await?;
 
         // download layers
         let tasks = oci_manifest
             .layers
             .iter()
-            .map(|layer| self.download(image, &layer, &folder_path));
+            .map(|layer| self.download(image, &layer, &folder_path, multi_progress.clone()));
 
         stream::iter(tasks)
             .buffer_unordered(env::get_concurrent_downloads())
@@ -241,6 +261,7 @@ impl RegistryClient {
         image: &str,
         descriptor: &Descriptor,
         dest_path: &PathBuf,
+        multi_progress: Option<Arc<MultiProgress>>,
     ) -> anyhow::Result<()> {
         let url = format!(
             "{}/v2/{}/blobs/{}",
@@ -254,6 +275,22 @@ impl RegistryClient {
             ));
         }
 
+        let content_length = response.content_length().unwrap_or(0);
+
+        let pb = if let Some(multi_progress) = multi_progress {
+            let pb = multi_progress.add(ProgressBar::new(content_length));
+            pb.set_message(format!("Downloading {}", descriptor.digest));
+            pb.set_style(
+                ProgressStyle::default_bar()
+                    .template("{msg} [{bar:40.cyan/blue}] {bytes}/{total_bytes} ({eta})")?
+                    .progress_chars("#>-"),
+            );
+            pb.set_message(format!("{}..", &descriptor.digest[..8]));
+            Some(pb)
+        } else {
+            None
+        };
+
         let file_type = manifest::get_file_type(&descriptor.media_type);
         let mut file =
             File::create(dest_path.join(format!("{}.{}", descriptor.digest, file_type))).await?;
@@ -262,6 +299,13 @@ impl RegistryClient {
         while let Some(chunk) = stream.next().await {
             let chunk = chunk?;
             file.write_all(&chunk).await?;
+            if let Some(pb) = &pb {
+                pb.inc(chunk.len() as u64);
+            }
+        }
+
+        if let Some(pb) = &pb {
+            pb.finish_with_message("Done");
         }
 
         file.flush().await?;
