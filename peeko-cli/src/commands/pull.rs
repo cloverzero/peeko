@@ -7,7 +7,7 @@ use crate::utils;
 pub async fn execute(image: &str, tag: &str, registry_url: &str) -> Result<()> {
     utils::print_header(&format!("Pulling {}:{} from {}", image, tag, registry_url));
 
-    let mut client = RegistryClient::new(registry_url).with_progress(true);
+    let mut client = RegistryClient::new(registry_url).enable_progress();
 
     let platform = PlatformParam {
         architecture: None,

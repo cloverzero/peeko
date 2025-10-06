@@ -1,3 +1,4 @@
 pub mod client;
+pub mod progress;
 
-pub use client::{RegistryClient, PlatformParam};
+pub use client::{PlatformParam, RegistryClient};
