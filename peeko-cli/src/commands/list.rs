@@ -1,9 +1,8 @@
 use anyhow::Result;
-use console::style;
 use std::fs;
 use tabled::{Table, Tabled};
 
-use peeko::env;
+use peeko::config;
 
 use crate::utils;
 
@@ -15,48 +14,33 @@ struct ImageInfo {
     tag: String,
     #[tabled(rename = "Size")]
     size: String,
-    #[tabled(rename = "Status")]
-    status: String,
 }
 
 pub async fn execute() -> Result<()> {
     utils::print_header("Downloaded Images");
+    let peeko_dir = config::get_peeko_dir();
+    let image_directories = peeko::fs::collect_image_directories(&peeko_dir)?;
 
-    let mut images = Vec::new();
-
-    // Scan for downloaded images
-    let entries = fs::read_dir(env::get_peeko_dir())?;
-    for entry in entries.flatten() {
-        if entry.file_type().map(|ft| ft.is_dir()).unwrap_or(false) {
-            let image_name = entry.file_name().to_string_lossy().to_string();
-
-            // Skip non-image directories
-            if image_name.starts_with('.') || image_name == "target" {
-                continue;
+    let images: Vec<ImageInfo> = image_directories
+        .iter()
+        .filter_map(|dir| {
+            let size = calculate_directory_size(dir).unwrap_or(0);
+            let relative_path = dir
+                .strip_prefix(&peeko_dir)
+                .expect("Must be a subdirectory of the peeko directory")
+                .to_string_lossy()
+                .to_string();
+            if let Some((image, tag)) = relative_path.rsplit_once('/') {
+                Some(ImageInfo {
+                    name: image.to_owned(),
+                    tag: tag.to_owned(),
+                    size: utils::format_size(size),
+                })
+            } else {
+                None
             }
-
-            if let Ok(tag_entries) = fs::read_dir(entry.path()) {
-                for tag_entry in tag_entries.flatten() {
-                    if tag_entry.file_type().map(|ft| ft.is_dir()).unwrap_or(false) {
-                        let tag_name = tag_entry.file_name().to_string_lossy().to_string();
-
-                        // Check if manifest.json exists
-                        let manifest_path = tag_entry.path().join("manifest.json");
-                        if manifest_path.exists() {
-                            let size = calculate_directory_size(&tag_entry.path()).unwrap_or(0);
-
-                            images.push(ImageInfo {
-                                name: image_name.clone(),
-                                tag: tag_name,
-                                size: utils::format_size(size),
-                                status: style("✅ Ready").green().to_string(),
-                            });
-                        }
-                    }
-                }
-            }
-        }
-    }
+        })
+        .collect();
 
     if images.is_empty() {
         utils::print_info("No downloaded images found.");

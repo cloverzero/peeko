@@ -9,7 +9,7 @@ use tokio::fs::{self, File};
 use tokio::io::AsyncWriteExt;
 
 use super::progress::{NoopProgress, ProgressTracker};
-use crate::env;
+use crate::config;
 use crate::manifest::{self, Descriptor, Manifest, ManifestList, PlatformManifest};
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -219,7 +219,7 @@ impl RegistryClient {
             image_manifest.ok_or_else(|| anyhow::anyhow!("No image manifest found"))?;
 
         // create folder
-        let peeko_dir = env::get_peeko_dir();
+        let peeko_dir = config::get_peeko_dir();
         let folder_path = peeko_dir.join(format!("{}/{}", image, tag));
         fs::create_dir_all(&folder_path).await?;
 
@@ -239,7 +239,7 @@ impl RegistryClient {
             .map(|layer| self.download(image, &layer, &folder_path));
 
         stream::iter(tasks)
-            .buffer_unordered(env::get_concurrent_downloads())
+            .buffer_unordered(config::get_concurrent_downloads())
             .try_collect::<Vec<_>>()
             .await?;
 

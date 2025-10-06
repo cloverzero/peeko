@@ -1,4 +1,4 @@
-use crate::fs::{FileEntry, VirtualFileSystem};
+use crate::reader::vfs::{FileEntry, VirtualFileSystem};
 
 pub fn show_statistics(vfs: &VirtualFileSystem) {
     let entries = vfs.get_entries();

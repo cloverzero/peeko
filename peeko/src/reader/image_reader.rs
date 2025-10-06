@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 use tokio::fs;
 
 use super::archive_utils;
-use crate::fs::{FileEntry, VirtualFileSystem};
+use super::vfs::{FileEntry, VirtualFileSystem};
 use crate::manifest::{ImageManifest, get_file_type};
 
 pub struct ImageReader {
