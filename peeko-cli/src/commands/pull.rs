@@ -7,7 +7,9 @@ use crate::utils;
 const DEFAULT_REGISTRY: &str = "https://registry-1.docker.io";
 
 pub async fn execute(image_url: &str) -> Result<()> {
-    let (registry_url, image, tag) = parse_image_url(image_url)?;
+    let (registry_url, image, tag) = parse_image_url(image_url).inspect_err(|err| {
+        utils::print_error(&format!("Failed to parse image URL: {}", err));
+    })?;
     utils::print_header(&format!("Pulling {}:{} from {}", image, tag, registry_url));
 
     let mut client = RegistryClient::new(&registry_url).enable_progress();
