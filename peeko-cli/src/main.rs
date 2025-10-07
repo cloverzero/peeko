@@ -1,8 +1,8 @@
-use clap::{Parser, Subcommand};
 use anyhow::Result;
+use clap::{Parser, Subcommand};
 
-mod interactive;
 mod commands;
+mod interactive;
 mod utils;
 
 #[derive(Parser)]
@@ -20,12 +20,6 @@ enum Commands {
     Pull {
         /// Image name (e.g., library/node, nginx)
         image: String,
-        /// Image tag (default: latest)
-        #[arg(short, long, default_value = "latest")]
-        tag: String,
-        /// Registry URL (default: Docker Hub)
-        #[arg(short, long, default_value = "https://registry-1.docker.io")]
-        registry: String,
     },
     /// List downloaded images
     List,
@@ -60,13 +54,18 @@ async fn main() -> Result<()> {
     let cli = Cli::parse();
 
     match cli.command {
-        Some(Commands::Pull { image, tag, registry }) => {
-            commands::pull::execute(&image, &tag, &registry).await?;
+        Some(Commands::Pull { image }) => {
+            commands::pull::execute(&image).await?;
         }
         Some(Commands::List) => {
             commands::list::execute().await?;
         }
-        Some(Commands::Tree { image, tag, depth, max_items }) => {
+        Some(Commands::Tree {
+            image,
+            tag,
+            depth,
+            max_items,
+        }) => {
             commands::tree::execute(&image, &tag, depth, max_items).await?;
         }
         Some(Commands::Stats { image, tag }) => {

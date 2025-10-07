@@ -1,6 +1,6 @@
 use anyhow::Result;
 use console::style;
-use inquire::{Select, Text, Confirm};
+use inquire::{Confirm, Select, Text};
 
 use crate::commands;
 use crate::utils;
@@ -19,8 +19,7 @@ pub async fn run() -> Result<()> {
 
     loop {
         println!();
-        let choice = Select::new("What would you like to do?", MENU_OPTIONS.to_vec())
-            .prompt()?;
+        let choice = Select::new("What would you like to do?", MENU_OPTIONS.to_vec()).prompt()?;
 
         match choice {
             "🐳 Pull new image" => {
@@ -62,22 +61,12 @@ pub async fn run() -> Result<()> {
 async fn handle_pull_image() -> Result<()> {
     println!("\n{}", style("📥 Pull Container Image").bold().cyan());
 
-    let image = Text::new("Image name (e.g., library/node, nginx):")
-        .with_help_message("Enter the image name without tag")
-        .prompt()?;
-
-    let tag = Text::new("Tag:")
-        .with_default("latest")
-        .with_help_message("Image tag or version")
-        .prompt()?;
-
-    let registry = Text::new("Registry URL:")
-        .with_default("https://registry-1.docker.io")
-        .with_help_message("Container registry URL")
+    let image = Text::new("Image name with tag (e.g., library/node:18-alpine, nginx:latest):")
+        .with_help_message("Enter the image name with tag")
         .prompt()?;
 
     println!("\n{}", style("Starting download...").dim());
-    commands::pull::execute(&image, &tag, &registry).await?;
+    commands::pull::execute(&image).await?;
 
     Ok(())
 }
@@ -89,9 +78,7 @@ async fn handle_browse_filesystem() -> Result<()> {
         .with_help_message("Enter the image name")
         .prompt()?;
 
-    let tag = Text::new("Tag:")
-        .with_default("latest")
-        .prompt()?;
+    let tag = Text::new("Tag:").with_default("latest").prompt()?;
 
     let depth = Text::new("Maximum depth:")
         .with_default("3")
@@ -118,9 +105,7 @@ async fn handle_show_stats() -> Result<()> {
         .with_help_message("Enter the image name")
         .prompt()?;
 
-    let tag = Text::new("Tag:")
-        .with_default("latest")
-        .prompt()?;
+    let tag = Text::new("Tag:").with_default("latest").prompt()?;
 
     commands::stats::execute(&image, &tag).await?;
 
