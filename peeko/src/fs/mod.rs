@@ -54,6 +54,12 @@ fn collect_image_directories_recursive(path: &Path, result: &mut Vec<PathBuf>) -
     Ok(())
 }
 
+pub fn delete_image(image: &str, tag: &str) -> Result<()> {
+    let image_path = config::get_peeko_dir().join(format!("{}/{}", image, tag));
+    fs::remove_dir_all(&image_path)?;
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

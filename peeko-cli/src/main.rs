@@ -23,6 +23,11 @@ enum Commands {
     },
     /// List downloaded images
     List,
+    /// Remove a downloaded image
+    Remove {
+        /// Image name with tag (e.g., library/node:18-alpine, nginx:latest)
+        image: String,
+    },
     /// Show image filesystem tree
     Tree {
         /// Image name
@@ -59,6 +64,9 @@ async fn main() -> Result<()> {
         }
         Some(Commands::List) => {
             commands::list::execute().await?;
+        }
+        Some(Commands::Remove { image }) => {
+            commands::remove::execute(&image).await?;
         }
         Some(Commands::Tree {
             image,
