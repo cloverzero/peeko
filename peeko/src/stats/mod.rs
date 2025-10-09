@@ -29,15 +29,6 @@ pub fn show_statistics(vfs: &VirtualFileSystem) {
     );
 }
 
-pub fn show_tree(vfs: &VirtualFileSystem, max_depth: usize, max_items: usize) {
-    println!(
-        "\n=== Directory Tree (depth={}, max_items={}) ===",
-        max_depth, max_items
-    );
-    let tree = vfs.get_directory_tree(max_depth);
-    tree.print(max_items);
-}
-
 pub fn list_top_level(vfs: &VirtualFileSystem) {
     println!("\n=== Top-level Entries ===");
 

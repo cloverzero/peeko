@@ -3,34 +3,30 @@ use peeko::reader::image_reader::ImageReader;
 
 use crate::utils;
 
-pub async fn execute(image: &str, tag: &str, depth: usize, max_items: usize) -> Result<()> {
-    utils::print_header(&format!("Filesystem Tree for {}:{}", image, tag));
+pub async fn execute(image_with_tag: &str, depth: usize) -> Result<()> {
+    match image_with_tag.rsplit_once(':') {
+        Some((image, tag)) => {
+            utils::print_header(&format!("Filesystem Tree for {}:{}", image, tag));
 
-    let image_path = format!("{}/{}", image, tag);
+            let image_path = peeko::config::get_peeko_dir().join(format!("{}/{}", image, tag));
 
-    // Check if image exists
-    if !std::path::Path::new(&image_path).exists() {
-        utils::print_error(&format!("Image {}:{} not found locally", image, tag));
-        utils::print_info("Use 'peeko pull' to download the image first.");
-        return Ok(());
-    }
+            // Check if image exists
+            if !std::path::Path::new(&image_path).exists() {
+                utils::print_error(&format!("Image {}:{} not found locally", image, tag));
+                utils::print_info("Use 'peeko pull' to download the image first.");
+                return Ok(());
+            }
 
-    let mut reader = ImageReader::new(&image_path);
+            let mut reader = ImageReader::new(&image_path);
 
-    match reader.reconstruct().await {
-        Ok(vfs) => {
-            let tree = vfs.get_directory_tree(depth);
-            tree.print(max_items);
+            reader.reconstruct().await?;
+            reader.print_dir_tree(depth);
 
             println!();
-            utils::print_info(&format!(
-                "Showing directory tree with max depth {} and {} items per level",
-                depth, max_items
-            ));
+            utils::print_info(&format!("Showing directory tree with max depth {}", depth));
         }
-        Err(e) => {
-            utils::print_error(&format!("Failed to reconstruct filesystem: {}", e));
-            return Err(e);
+        None => {
+            utils::print_error("Image with tag is required");
         }
     }
 

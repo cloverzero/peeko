@@ -37,11 +37,6 @@ pub async fn run() -> Result<()> {
                     utils::print_error(&format!("Failed to browse filesystem: {}", e));
                 }
             }
-            "📊 Show image statistics" => {
-                if let Err(e) = handle_show_stats().await {
-                    utils::print_error(&format!("Failed to show statistics: {}", e));
-                }
-            }
             "🧹 Clean downloaded images" => {
                 if let Err(e) = handle_clean_images().await {
                     utils::print_error(&format!("Failed to clean images: {}", e));
@@ -78,36 +73,14 @@ async fn handle_browse_filesystem() -> Result<()> {
         .with_help_message("Enter the image name")
         .prompt()?;
 
-    let tag = Text::new("Tag:").with_default("latest").prompt()?;
-
     let depth = Text::new("Maximum depth:")
         .with_default("3")
         .with_help_message("How deep to show the directory tree")
         .prompt()?;
 
-    let max_items = Text::new("Maximum items per level:")
-        .with_default("10")
-        .with_help_message("Maximum number of items to show at each level")
-        .prompt()?;
-
     let depth: usize = depth.parse().unwrap_or(3);
-    let max_items: usize = max_items.parse().unwrap_or(10);
 
-    commands::tree::execute(&image, &tag, depth, max_items).await?;
-
-    Ok(())
-}
-
-async fn handle_show_stats() -> Result<()> {
-    println!("\n{}", style("📊 Image Statistics").bold().magenta());
-
-    let image = Text::new("Image name:")
-        .with_help_message("Enter the image name")
-        .prompt()?;
-
-    let tag = Text::new("Tag:").with_default("latest").prompt()?;
-
-    commands::stats::execute(&image, &tag).await?;
+    commands::tree::execute(&image, depth).await?;
 
     Ok(())
 }

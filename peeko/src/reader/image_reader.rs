@@ -8,12 +8,16 @@ use crate::manifest::{ImageManifest, get_file_type};
 
 pub struct ImageReader {
     image_dir: PathBuf,
+    manifest: Option<ImageManifest>,
+    vfs: Option<VirtualFileSystem>,
 }
 
 impl ImageReader {
     pub fn new<P: AsRef<Path>>(image_dir: P) -> Self {
         Self {
             image_dir: image_dir.as_ref().to_path_buf(),
+            manifest: None,
+            vfs: None,
         }
     }
 
@@ -24,7 +28,7 @@ impl ImageReader {
         Ok(manifest)
     }
 
-    pub async fn reconstruct(&mut self) -> anyhow::Result<VirtualFileSystem> {
+    pub async fn reconstruct(&mut self) -> anyhow::Result<()> {
         let manifest = self.load_manifest().await?;
         let mut vfs = VirtualFileSystem::new();
         for (layer_index, layer) in manifest.layers.iter().enumerate() {
@@ -36,7 +40,10 @@ impl ImageReader {
                 .await?;
         }
 
-        Ok(vfs)
+        self.manifest = Some(manifest);
+        self.vfs = Some(vfs);
+
+        Ok(())
     }
 
     async fn load_layer(
@@ -111,20 +118,21 @@ impl ImageReader {
         }
         Ok(())
     }
+
+    pub fn print_dir_tree(&self, depth: usize) {
+        let tree = self.vfs.as_ref().unwrap().get_directory_tree(Some(depth));
+        tree.print(depth);
+    }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::stats;
-
     use super::*;
 
     #[tokio::test]
     async fn test_reconstruct() {
         let mut reader = ImageReader::new("library/node/24-alpine");
-        let vfs = reader.reconstruct().await.unwrap();
-        stats::show_statistics(&vfs);
-        stats::show_tree(&vfs, 3, 10);
-        stats::list_top_level(&vfs);
+        let r = reader.reconstruct().await;
+        assert!(r.is_ok());
     }
 }

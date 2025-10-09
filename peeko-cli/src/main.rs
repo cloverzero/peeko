@@ -30,25 +30,11 @@ enum Commands {
     },
     /// Show image filesystem tree
     Tree {
-        /// Image name
+        /// Image name with tag (e.g., library/node:18-alpine, nginx:latest)
         image: String,
-        /// Image tag
-        #[arg(short, long, default_value = "latest")]
-        tag: String,
         /// Maximum depth to show
         #[arg(short, long, default_value = "3")]
         depth: usize,
-        /// Maximum items per level
-        #[arg(short, long, default_value = "10")]
-        max_items: usize,
-    },
-    /// Show image statistics
-    Stats {
-        /// Image name
-        image: String,
-        /// Image tag
-        #[arg(short, long, default_value = "latest")]
-        tag: String,
     },
     /// Start interactive mode
     Interactive,
@@ -68,16 +54,8 @@ async fn main() -> Result<()> {
         Some(Commands::Remove { image }) => {
             commands::remove::execute(&image).await?;
         }
-        Some(Commands::Tree {
-            image,
-            tag,
-            depth,
-            max_items,
-        }) => {
-            commands::tree::execute(&image, &tag, depth, max_items).await?;
-        }
-        Some(Commands::Stats { image, tag }) => {
-            commands::stats::execute(&image, &tag).await?;
+        Some(Commands::Tree { image, depth }) => {
+            commands::tree::execute(&image, depth).await?;
         }
         Some(Commands::Interactive) | None => {
             interactive::run().await?;
