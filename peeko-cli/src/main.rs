@@ -41,6 +41,15 @@ enum Commands {
         #[arg(short, long, default_value = "3")]
         depth: usize,
     },
+    /// List files in an image
+    Ls {
+        /// Image name with tag (e.g., library/node:18-alpine, nginx:latest)
+        image: String,
+
+        /// Path to start the ls from
+        #[arg(short, long)]
+        path: String,
+    },
     /// Start interactive mode
     Interactive,
 }
@@ -61,6 +70,9 @@ async fn main() -> Result<()> {
         }
         Some(Commands::Tree { image, depth, path }) => {
             commands::tree::execute(&image, depth, path).await?;
+        }
+        Some(Commands::Ls { image, path }) => {
+            commands::ls::execute(&image, &path).await?;
         }
         Some(Commands::Interactive) | None => {
             interactive::run().await?;

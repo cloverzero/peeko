@@ -4,6 +4,7 @@ use anyhow::Result;
 use tokio::fs;
 
 use super::archive_utils;
+use super::dir_tree::DirectoryTree;
 use super::vfs::{FileEntry, VirtualFileSystem};
 use crate::manifest::{ImageManifest, get_file_type};
 
@@ -120,32 +121,41 @@ impl ImageReader {
         Ok(())
     }
 
-    pub fn print_dir_tree(&self, depth: usize, path: Option<String>) -> Result<()> {
+    pub fn get_dir_tree(&self) -> Result<DirectoryTree> {
         match &self.vfs {
             Some(vfs) => {
-                let depth = if let Some(path) = &path {
-                    let p = PathBuf::from(&path);
-                    p.components().count() + depth
-                } else {
-                    depth
-                };
-                let tree = vfs.get_directory_tree(Some(depth));
-                let target_node = match &path {
-                    Some(path) => tree.find(path),
-                    None => Some(tree.root),
-                };
-
-                match target_node {
-                    Some(node) => {
-                        node.print(0, depth, true, "");
-                        Ok(())
-                    }
-                    None => Err(anyhow::anyhow!("Path not found")),
-                }
+                let tree = vfs.get_directory_tree();
+                Ok(tree)
             }
             None => Err(anyhow::anyhow!(
                 "OIC Image Layers are not loaded yet, please call `reconstruct()` first"
             )),
+        }
+    }
+
+    pub fn print_dir_tree(&self, depth: usize, path: Option<String>) -> Result<()> {
+        let tree = self.get_dir_tree()?;
+        let target_node = match &path {
+            Some(path) => tree.find(path),
+            None => Some(tree.root),
+        };
+
+        match target_node {
+            Some(node) => {
+                node.print(0, depth, true, "");
+                Ok(())
+            }
+            None => Err(anyhow::anyhow!("Path not found")),
+        }
+    }
+
+    pub fn get_file_meatadata(&self, path: &str) -> Option<&FileEntry> {
+        match &self.vfs {
+            Some(vfs) => {
+                let entry = vfs.get_entry(&PathBuf::from(path));
+                entry
+            }
+            None => None,
         }
     }
 }

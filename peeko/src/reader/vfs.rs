@@ -34,6 +34,10 @@ impl VirtualFileSystem {
         }
     }
 
+    pub fn get_entry(&self, path: &PathBuf) -> Option<&FileEntry> {
+        self.entries.get(path)
+    }
+
     pub fn delete_entry(&mut self, path: &PathBuf) {
         self.entries.remove(path);
         self.deleted.insert(path.to_path_buf());
@@ -59,11 +63,12 @@ impl VirtualFileSystem {
         &self.entries
     }
 
-    pub fn get_directory_tree(&self, max_depth: Option<usize>) -> DirectoryTree {
+    pub fn get_directory_tree(&self) -> DirectoryTree {
         let tree = DirectoryTree::new();
 
-        for path in self.entries.keys() {
-            tree.add_path(path, max_depth);
+        for (path, file_entry) in &self.entries {
+            let is_dir = matches!(file_entry, FileEntry::Directory { .. });
+            tree.add_path(path, is_dir);
         }
 
         tree

@@ -5,13 +5,14 @@ use std::rc::{Rc, Weak};
 
 #[derive(Debug)]
 pub struct TreeNode {
-    name: String,
-    children: RefCell<HashMap<String, Rc<TreeNode>>>,
-    parent: RefCell<Weak<TreeNode>>,
+    pub name: String,
+    pub children: RefCell<HashMap<String, Rc<TreeNode>>>,
+    pub parent: RefCell<Weak<TreeNode>>,
+    pub is_dir: bool,
 }
 
 impl TreeNode {
-    pub fn pwd(&self) -> String {
+    pub fn pwd(&self, with_root: bool) -> String {
         let mut components = vec![self.name.clone()];
         let mut current = self.parent.borrow().upgrade();
 
@@ -23,22 +24,34 @@ impl TreeNode {
         // remove the root node
         components.pop();
         components.reverse();
-        format!("/{}", components.join("/"))
+
+        if with_root {
+            format!("/{}", components.join("/"))
+        } else {
+            components.join("/")
+        }
     }
 
     pub fn print(&self, depth: usize, max_depth: usize, is_last: bool, prefix: &str) {
-        if depth > max_depth {
-            return;
-        }
-
         let new_prefix = if depth == 0 {
             println!("{}", &self.name);
             prefix.to_string()
         } else {
             let connector = if is_last { "└── " } else { "├── " };
-            println!("{}{}{}", prefix, connector, &self.name);
+            println!(
+                "{}{}{}{}",
+                prefix,
+                connector,
+                &self.name,
+                if self.is_dir { "/" } else { "" }
+            );
             format!("{}{}", prefix, if is_last { "    " } else { "│   " })
         };
+
+        // print the current node, then check if the depth is greater than the max depth
+        if depth > max_depth {
+            return;
+        }
 
         let children = self.children.borrow();
         let mut sorted_children: Vec<&Rc<TreeNode>> = children.values().collect();
@@ -62,11 +75,12 @@ impl DirectoryTree {
                 name: "/".to_string(),
                 children: RefCell::new(HashMap::new()),
                 parent: RefCell::new(Weak::new()),
+                is_dir: true,
             }),
         }
     }
 
-    pub fn add_path<P: AsRef<Path>>(&self, path: P, max_depth: Option<usize>) {
+    pub fn add_path<P: AsRef<Path>>(&self, path: P, is_dir: bool) {
         let mut components: Vec<_> = path
             .as_ref()
             .components()
@@ -79,15 +93,12 @@ impl DirectoryTree {
         if components[0].eq("/") {
             components.remove(0);
         }
-        if let Some(max_depth) = max_depth {
-            if components.len() > max_depth {
-                return;
-            }
-        }
 
         let mut current = Rc::clone(&self.root);
 
-        for component in components.iter() {
+        let last_index = components.len() - 1;
+
+        for (index, component) in components.iter().enumerate() {
             let new_node = Rc::clone(
                 current
                     .children
@@ -98,6 +109,7 @@ impl DirectoryTree {
                             name: component.to_string(),
                             children: RefCell::new(HashMap::new()),
                             parent: RefCell::new(Rc::downgrade(&current)),
+                            is_dir: index != last_index || is_dir,
                         })
                     }),
             );
@@ -148,8 +160,8 @@ mod tests {
     fn test_add_path() {
         let tree = DirectoryTree::new();
         let path = "/usr/bin/ls";
-        tree.add_path(path, None);
+        tree.add_path(path, false);
         let node = tree.find(path).unwrap();
-        assert_eq!(node.pwd(), path);
+        assert_eq!(node.pwd(true), path);
     }
 }
