@@ -80,7 +80,7 @@ async fn handle_browse_filesystem() -> Result<()> {
 
     let depth: usize = depth.parse().unwrap_or(3);
 
-    commands::tree::execute(&image, depth).await?;
+    commands::tree::execute(&image, depth, None).await?;
 
     Ok(())
 }

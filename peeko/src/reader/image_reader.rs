@@ -1,5 +1,6 @@
 use std::path::{Path, PathBuf};
 
+use anyhow::Result;
 use tokio::fs;
 
 use super::archive_utils;
@@ -119,9 +120,33 @@ impl ImageReader {
         Ok(())
     }
 
-    pub fn print_dir_tree(&self, depth: usize) {
-        let tree = self.vfs.as_ref().unwrap().get_directory_tree(Some(depth));
-        tree.print(depth);
+    pub fn print_dir_tree(&self, depth: usize, path: Option<String>) -> Result<()> {
+        match &self.vfs {
+            Some(vfs) => {
+                let depth = if let Some(path) = &path {
+                    let p = PathBuf::from(&path);
+                    p.components().count() + depth
+                } else {
+                    depth
+                };
+                let tree = vfs.get_directory_tree(Some(depth));
+                let target_node = match &path {
+                    Some(path) => tree.find(path),
+                    None => Some(tree.root),
+                };
+
+                match target_node {
+                    Some(node) => {
+                        node.print(0, depth, true, "");
+                        Ok(())
+                    }
+                    None => Err(anyhow::anyhow!("Path not found")),
+                }
+            }
+            None => Err(anyhow::anyhow!(
+                "OIC Image Layers are not loaded yet, please call `reconstruct()` first"
+            )),
+        }
     }
 }
 

@@ -52,7 +52,7 @@ impl TreeNode {
 }
 #[derive(Debug)]
 pub struct DirectoryTree {
-    root: Rc<TreeNode>,
+    pub root: Rc<TreeNode>,
 }
 
 impl DirectoryTree {
@@ -88,7 +88,6 @@ impl DirectoryTree {
         let mut current = Rc::clone(&self.root);
 
         for component in components.iter() {
-            println!("component: {}", component);
             let new_node = Rc::clone(
                 current
                     .children

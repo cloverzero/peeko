@@ -3,7 +3,7 @@ use peeko::reader::image_reader::ImageReader;
 
 use crate::utils;
 
-pub async fn execute(image_with_tag: &str, depth: usize) -> Result<()> {
+pub async fn execute(image_with_tag: &str, depth: usize, path: Option<String>) -> Result<()> {
     match image_with_tag.rsplit_once(':') {
         Some((image, tag)) => {
             utils::print_header(&format!("Filesystem Tree for {}:{}", image, tag));
@@ -20,7 +20,7 @@ pub async fn execute(image_with_tag: &str, depth: usize) -> Result<()> {
             let mut reader = ImageReader::new(&image_path);
 
             reader.reconstruct().await?;
-            reader.print_dir_tree(depth);
+            reader.print_dir_tree(depth, path);
 
             println!();
             utils::print_info(&format!("Showing directory tree with max depth {}", depth));

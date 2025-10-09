@@ -32,6 +32,11 @@ enum Commands {
     Tree {
         /// Image name with tag (e.g., library/node:18-alpine, nginx:latest)
         image: String,
+
+        /// Path to start the tree from
+        #[arg(short, long)]
+        path: Option<String>,
+
         /// Maximum depth to show
         #[arg(short, long, default_value = "3")]
         depth: usize,
@@ -54,8 +59,8 @@ async fn main() -> Result<()> {
         Some(Commands::Remove { image }) => {
             commands::remove::execute(&image).await?;
         }
-        Some(Commands::Tree { image, depth }) => {
-            commands::tree::execute(&image, depth).await?;
+        Some(Commands::Tree { image, depth, path }) => {
+            commands::tree::execute(&image, depth, path).await?;
         }
         Some(Commands::Interactive) | None => {
             interactive::run().await?;
