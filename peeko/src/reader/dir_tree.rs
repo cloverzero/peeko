@@ -107,6 +107,9 @@ impl DirectoryTree {
     }
 
     pub fn find(&self, path: &str) -> Option<Rc<TreeNode>> {
+        if path.eq("/") {
+            return Some(Rc::clone(&self.root));
+        }
         let components: Vec<_> = path.trim_matches('/').split('/').collect();
         if components.len() == 0 {
             return None;

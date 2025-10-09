@@ -20,10 +20,15 @@ pub async fn execute(image_with_tag: &str, depth: usize, path: Option<String>) -
             let mut reader = ImageReader::new(&image_path);
 
             reader.reconstruct().await?;
-            reader.print_dir_tree(depth, path);
-
-            println!();
-            utils::print_info(&format!("Showing directory tree with max depth {}", depth));
+            match reader.print_dir_tree(depth, path) {
+                Ok(()) => {
+                    println!();
+                    utils::print_info(&format!("Showing directory tree with max depth {}", depth));
+                }
+                Err(e) => {
+                    utils::print_error(&format!("Error printing directory tree: {}", e));
+                }
+            }
         }
         None => {
             utils::print_error("Image with tag is required");
