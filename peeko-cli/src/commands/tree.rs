@@ -1,5 +1,5 @@
 use anyhow::Result;
-use peeko::reader::image_reader::ImageReader;
+use peeko::reader::build_image_reader;
 
 use crate::utils;
 
@@ -17,9 +17,8 @@ pub async fn execute(image_with_tag: &str, depth: usize, path: Option<String>) -
                 return Ok(());
             }
 
-            let mut reader = ImageReader::new(&image_path);
+            let reader = build_image_reader(&image_path).await?;
 
-            reader.reconstruct().await?;
             match reader.print_dir_tree(depth, path) {
                 Ok(()) => {
                     println!();

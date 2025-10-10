@@ -1,9 +1,21 @@
-use std::path::PathBuf;
+use std::time::Duration;
 
 use anyhow::Result;
-use peeko::reader::ImageReader;
+use indicatif::{ProgressBar, ProgressStyle};
+use peeko::reader::{build_image_reader, vfs::FileEntry};
+use tabled::{Table, Tabled, settings::Style};
 
 use crate::utils;
+
+#[derive(Tabled)]
+struct FileInfo {
+    #[tabled(rename = "Type")]
+    file_type: String,
+    #[tabled(rename = "Size")]
+    size: String,
+    #[tabled(rename = "File")]
+    name: String,
+}
 
 pub async fn execute(image_with_tag: &str, path: &str) -> Result<()> {
     match image_with_tag.rsplit_once(':') {
@@ -16,27 +28,67 @@ pub async fn execute(image_with_tag: &str, path: &str) -> Result<()> {
                 return Ok(());
             }
 
-            let mut reader = ImageReader::new(&image_path);
-            reader.reconstruct().await?;
-            println!("path: {:?}", path);
+            // 创建一个无限 spinner
+            let pb = ProgressBar::new_spinner();
+            pb.set_style(
+                ProgressStyle::default_spinner()
+                    .template("{spinner:.green} {msg}")
+                    .unwrap()
+                    .tick_chars("⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏ "), // 这些字符会循环形成动画
+            );
+            pb.set_message("Loading image...");
+            pb.enable_steady_tick(Duration::from_millis(100));
+
+            let reader = build_image_reader(&image_path).await?;
+
             let dir_tree = reader.get_dir_tree()?;
             let target_node = dir_tree.find(path);
             match target_node {
                 Some(node) => {
+                    let mut files: Vec<FileInfo> = Vec::new();
                     for child in node.children.borrow().values() {
                         let full_path_str = child.pwd(false);
                         let entry = reader.get_file_meatadata(&full_path_str);
                         match entry {
                             Some(entry) => {
-                                println!("{} - {:?}", &child.name, entry);
+                                let file_info = match entry {
+                                    FileEntry::File { size, .. } => FileInfo {
+                                        name: child.name.clone(),
+                                        size: utils::format_size(*size),
+                                        file_type: "file".to_string(),
+                                    },
+                                    FileEntry::Directory { .. } => FileInfo {
+                                        name: child.name.clone(),
+                                        size: "".to_string(),
+                                        file_type: "dir".to_string(),
+                                    },
+                                    FileEntry::Symlink { .. } => FileInfo {
+                                        name: child.name.clone(),
+                                        size: "".to_string(),
+                                        file_type: "symlink".to_string(),
+                                    },
+                                };
+                                files.push(file_info);
                             }
                             None => {
                                 println!("NG: {}", full_path_str);
                             }
                         }
                     }
+
+                    files.sort_by(|a, b| a.name.cmp(&b.name));
+
+                    let len = files.len();
+                    let mut table = Table::new(files);
+                    table.with(Style::blank());
+
+                    pb.finish_and_clear();
+                    println!("{}", table);
+                    println!();
+                    utils::print_info(&format!("Showing {} files", len));
                 }
                 None => {
+                    pb.finish_and_clear();
                     utils::print_error(&format!("Path {} not found", path));
                 }
             }

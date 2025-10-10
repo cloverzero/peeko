@@ -1,6 +1,6 @@
 mod archive_utils;
-pub mod dir_tree;
-pub mod image_reader;
+mod dir_tree;
+mod image_reader;
 pub mod vfs;
 
-pub use image_reader::ImageReader;
+pub use image_reader::build_image_reader;
