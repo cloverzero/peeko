@@ -50,7 +50,12 @@ impl ProgressTracker for IndicatifProgress {
         {
             pb.set_style(style.progress_chars("#>-"));
         }
-        pb.set_message(format!("{}..", &digest[..8.min(digest.len())]));
+        let digest_display = if let Some(pos) = digest.find(":") {
+            &digest[pos + 1..(pos + 12).min(digest.len())]
+        } else {
+            &digest[..12.min(digest.len())]
+        };
+        pb.set_message(format!("{digest_display}.."));
         self.bars.lock().unwrap().insert(digest.to_string(), pb);
     }
 
