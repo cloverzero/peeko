@@ -134,7 +134,7 @@ impl DirectoryTree {
                 .children
                 .borrow()
                 .get(component)
-                .map(|node| Rc::clone(node));
+                .map(Rc::clone);
             match node {
                 Some(node) => {
                     current = node;
