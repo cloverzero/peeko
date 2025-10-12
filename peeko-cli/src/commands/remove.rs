@@ -8,8 +8,6 @@ pub async fn execute(image_with_tag: &str) -> Result<()> {
             utils::print_success(&format!("Successfully removed {image_with_tag}"));
             Ok(())
         }
-        None => Err(PeekoCliError::InputError(
-            "Image tag is required".to_string(),
-        )),
+        None => Err(PeekoCliError::Input("Image tag is required".to_string())),
     }
 }

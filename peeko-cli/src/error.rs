@@ -4,11 +4,11 @@ use thiserror::Error;
 #[derive(Error, Debug)]
 pub enum PeekoCliError {
     #[error("Input error: {0}")]
-    InputError(String),
+    Input(String),
     #[error("{0}")]
-    ReaderRuntimeError(#[from] peeko::reader::ImageReaderError),
+    ReaderRuntime(#[from] peeko::reader::ImageReaderError),
     #[error("{0}")]
-    RegistryRuntimeError(#[from] peeko::registry::RegistryError),
+    RegistryRuntime(#[from] peeko::registry::RegistryError),
     #[error("{0}")]
     RuntimeError(String),
 

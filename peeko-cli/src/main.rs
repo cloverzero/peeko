@@ -85,7 +85,7 @@ async fn main() -> Result<(), error::PeekoCliError> {
     };
     match result {
         Ok(_) => {}
-        Err(PeekoCliError::InputError(message)) => {
+        Err(PeekoCliError::Input(message)) => {
             print_warning(&message);
             std::process::exit(2);
         }

@@ -22,7 +22,7 @@ pub async fn execute(image_with_tag: &str, depth: usize, path: Option<String>) -
 
             Ok(())
         }
-        None => Err(PeekoCliError::InputError(
+        None => Err(PeekoCliError::Input(
             "Image with tag is required".to_string(),
         )),
     }

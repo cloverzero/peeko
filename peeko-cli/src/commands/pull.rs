@@ -40,7 +40,7 @@ pub async fn execute(image_url: &str) -> Result<()> {
 fn parse_image_url(image_url: &str) -> Result<(String, String, String)> {
     let (image_url, tag) = image_url
         .rsplit_once(':')
-        .ok_or_else(|| PeekoCliError::InputError("Image tag is required".to_string()))?;
+        .ok_or_else(|| PeekoCliError::Input("Image tag is required".to_string()))?;
 
     match image_url.find('/') {
         Some(index) => {
