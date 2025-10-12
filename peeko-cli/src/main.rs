@@ -1,7 +1,12 @@
-use anyhow::Result;
 use clap::{Parser, Subcommand};
 
+use crate::{
+    error::PeekoCliError,
+    utils::{print_error, print_warning},
+};
+
 mod commands;
+mod error;
 mod interactive;
 mod utils;
 
@@ -64,30 +69,30 @@ enum Commands {
 }
 
 #[tokio::main]
-async fn main() -> Result<()> {
+async fn main() -> Result<(), error::PeekoCliError> {
     let cli = Cli::parse();
 
-    match cli.command {
-        Some(Commands::Pull { image }) => {
-            commands::pull::execute(&image).await?;
-        }
-        Some(Commands::List) => {
-            commands::list::execute().await?;
-        }
-        Some(Commands::Remove { image }) => {
-            commands::remove::execute(&image).await?;
-        }
+    let result = match cli.command {
+        Some(Commands::Pull { image }) => commands::pull::execute(&image).await,
+        Some(Commands::List) => commands::list::execute().await,
+        Some(Commands::Remove { image }) => commands::remove::execute(&image).await,
         Some(Commands::Tree { image, depth, path }) => {
-            commands::tree::execute(&image, depth, path).await?;
+            commands::tree::execute(&image, depth, path).await
         }
-        Some(Commands::Ls { image, path }) => {
-            commands::ls::execute(&image, &path).await?;
+        Some(Commands::Ls { image, path }) => commands::ls::execute(&image, &path).await,
+        Some(Commands::Cat { image, path }) => commands::cat::execute(&image, &path).await,
+        Some(Commands::Interactive) | None => interactive::run().await,
+    };
+    match result {
+        Ok(_) => {}
+        Err(PeekoCliError::InputError(message)) => {
+            print_warning(&message);
+            std::process::exit(2);
         }
-        Some(Commands::Cat { image, path }) => {
-            commands::cat::execute(&image, &path).await?;
-        }
-        Some(Commands::Interactive) | None => {
-            interactive::run().await?;
+        Err(err) => {
+            let err_msg = format!("{}", err);
+            print_error(&err_msg);
+            std::process::exit(1);
         }
     }
 

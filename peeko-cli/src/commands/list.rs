@@ -1,9 +1,9 @@
-use anyhow::Result;
 use std::fs;
 use tabled::{Table, Tabled};
 
 use peeko::config;
 
+use crate::error::Result;
 use crate::utils;
 
 #[derive(Tabled)]
@@ -52,7 +52,6 @@ pub async fn execute() -> Result<()> {
         println!();
         utils::print_info(&format!("Found {} downloaded image(s)", len));
     }
-
     Ok(())
 }
 

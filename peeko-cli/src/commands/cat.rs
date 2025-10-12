@@ -1,9 +1,9 @@
 use std::time::Duration;
 
-use anyhow::Result;
 use indicatif::{ProgressBar, ProgressStyle};
 use peeko::reader::build_image_reader;
 
+use crate::error::{PeekoCliError, Result};
 use crate::utils;
 
 pub async fn execute(image_with_tag: &str, path: &str) -> Result<()> {
@@ -14,7 +14,7 @@ pub async fn execute(image_with_tag: &str, path: &str) -> Result<()> {
             if !std::path::Path::new(&image_path).exists() {
                 utils::print_error(&format!("Image {}:{} not found locally", image, tag));
                 utils::print_info("Use 'peeko pull' to download the image first.");
-                return Ok(());
+                return Err(PeekoCliError::RuntimeError("".to_string()));
             }
 
             // 创建一个无限 spinner
@@ -40,10 +40,10 @@ pub async fn execute(image_with_tag: &str, path: &str) -> Result<()> {
             pb.finish_and_clear();
 
             println!("{}", content);
+            Ok(())
         }
-        None => {
-            utils::print_error("Image with tag is required");
-        }
+        None => Err(PeekoCliError::RuntimeError(
+            "Image with tag is required".to_string(),
+        )),
     }
-    Ok(())
 }

@@ -1,5 +1,4 @@
-use anyhow::Result;
-
+use crate::error::{PeekoCliError, Result};
 use crate::utils;
 
 pub async fn execute(image_with_tag: &str) -> Result<()> {
@@ -7,10 +6,10 @@ pub async fn execute(image_with_tag: &str) -> Result<()> {
         Some((image, tag)) => {
             peeko::fs::delete_image(image, tag)?;
             utils::print_success(&format!("Successfully removed {}", image_with_tag));
+            Ok(())
         }
-        None => {
-            utils::print_warning("Image with tag is required");
-        }
+        None => Err(PeekoCliError::InputError(
+            "Image tag is required".to_string(),
+        )),
     }
-    Ok(())
 }

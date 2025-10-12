@@ -1,15 +1,13 @@
-use anyhow::Result;
 use console::style;
 use peeko::registry::client::{PlatformParam, RegistryClient, RegistryError};
 
+use crate::error::{PeekoCliError, Result};
 use crate::utils;
 
 const DEFAULT_REGISTRY: &str = "https://registry-1.docker.io";
 
 pub async fn execute(image_url: &str) -> Result<()> {
-    let (registry_url, image, tag) = parse_image_url(image_url).inspect_err(|err| {
-        utils::print_warning(&format!("{}", err));
-    })?;
+    let (registry_url, image, tag) = parse_image_url(image_url)?;
     utils::print_header(&format!("Pulling {}:{} from {}", image, tag, registry_url));
 
     let mut client = RegistryClient::new(&registry_url).enable_progress();
@@ -26,23 +24,23 @@ pub async fn execute(image_url: &str) -> Result<()> {
 
             let image_path = format!("{}/{}", image, tag);
             utils::print_info(&format!("Image saved to: {}", style(&image_path).cyan()));
+            Ok(())
         }
         Err(RegistryError::ManifestNotFound) => {
             utils::print_error(&format!("Image not found for {}:{}", image, tag));
+            Err(PeekoCliError::RuntimeError("".to_string()))
         }
         Err(err) => {
             utils::print_error(&format!("Failed to pull {}:{}", image, tag));
-            utils::print_error(&format!("Error: {}", err));
+            Err(err.into())
         }
     }
-
-    Ok(())
 }
 
 fn parse_image_url(image_url: &str) -> Result<(String, String, String)> {
     let (image_url, tag) = image_url
         .rsplit_once(':')
-        .ok_or_else(|| anyhow::anyhow!("Tag is required"))?;
+        .ok_or_else(|| PeekoCliError::InputError("Image tag is required".to_string()))?;
 
     match image_url.find('/') {
         Some(index) => {

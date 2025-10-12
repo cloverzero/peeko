@@ -1,10 +1,10 @@
 use std::time::Duration;
 
-use anyhow::Result;
 use indicatif::{ProgressBar, ProgressStyle};
 use peeko::reader::{build_image_reader, vfs::FileEntry};
 use tabled::{Table, Tabled, settings::Style};
 
+use crate::error::{PeekoCliError, Result};
 use crate::utils;
 
 #[derive(Tabled)]
@@ -25,7 +25,7 @@ pub async fn execute(image_with_tag: &str, path: &str) -> Result<()> {
             if !std::path::Path::new(&image_path).exists() {
                 utils::print_warning(&format!("Image {}:{} not found locally", image, tag));
                 utils::print_info("Use 'peeko pull' to download the image first.");
-                return Ok(());
+                return Err(PeekoCliError::RuntimeError("".to_string()));
             }
 
             // 创建一个无限 spinner
@@ -49,30 +49,25 @@ pub async fn execute(image_with_tag: &str, path: &str) -> Result<()> {
                     for child in node.children.borrow().values() {
                         let full_path_str = child.pwd(false);
                         let entry = reader.get_file_meatadata(&full_path_str);
-                        match entry {
-                            Some(entry) => {
-                                let file_info = match entry {
-                                    FileEntry::File { size, .. } => FileInfo {
-                                        name: child.name.clone(),
-                                        size: utils::format_size(*size),
-                                        file_type: "file".to_string(),
-                                    },
-                                    FileEntry::Directory { .. } => FileInfo {
-                                        name: child.name.clone(),
-                                        size: "".to_string(),
-                                        file_type: "dir".to_string(),
-                                    },
-                                    FileEntry::Symlink { .. } => FileInfo {
-                                        name: child.name.clone(),
-                                        size: "".to_string(),
-                                        file_type: "symlink".to_string(),
-                                    },
-                                };
-                                files.push(file_info);
-                            }
-                            None => {
-                                println!("NG: {}", full_path_str);
-                            }
+                        if let Some(entry) = entry {
+                            let file_info = match entry {
+                                FileEntry::File { size, .. } => FileInfo {
+                                    name: child.name.clone(),
+                                    size: utils::format_size(*size),
+                                    file_type: "file".to_string(),
+                                },
+                                FileEntry::Directory { .. } => FileInfo {
+                                    name: child.name.clone(),
+                                    size: "".to_string(),
+                                    file_type: "dir".to_string(),
+                                },
+                                FileEntry::Symlink { .. } => FileInfo {
+                                    name: child.name.clone(),
+                                    size: "".to_string(),
+                                    file_type: "symlink".to_string(),
+                                },
+                            };
+                            files.push(file_info);
                         }
                     }
 
@@ -86,16 +81,19 @@ pub async fn execute(image_with_tag: &str, path: &str) -> Result<()> {
                     println!("{}", table);
                     println!();
                     utils::print_info(&format!("Showing {} files", len));
+                    Ok(())
                 }
                 None => {
                     pb.finish_and_clear();
-                    utils::print_error(&format!("Path {} not found", path));
+                    Err(PeekoCliError::RuntimeError(format!(
+                        "Path {} not found",
+                        path
+                    )))
                 }
             }
         }
-        None => {
-            utils::print_error("Image with tag is required");
-        }
+        None => Err(PeekoCliError::InputError(
+            "Image tag is required".to_string(),
+        )),
     }
-    Ok(())
 }

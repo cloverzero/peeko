@@ -1,8 +1,8 @@
-use anyhow::Result;
 use console::style;
 use inquire::{Confirm, Select, Text};
 
 use crate::commands;
+use crate::error::Result;
 use crate::utils;
 
 const MENU_OPTIONS: &[&str] = &[

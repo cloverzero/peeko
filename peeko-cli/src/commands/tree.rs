@@ -1,6 +1,6 @@
-use anyhow::Result;
 use peeko::reader::build_image_reader;
 
+use crate::error::{PeekoCliError, Result};
 use crate::utils;
 
 pub async fn execute(image_with_tag: &str, depth: usize, path: Option<String>) -> Result<()> {
@@ -14,25 +14,16 @@ pub async fn execute(image_with_tag: &str, depth: usize, path: Option<String>) -
             if !std::path::Path::new(&image_path).exists() {
                 utils::print_error(&format!("Image {}:{} not found locally", image, tag));
                 utils::print_info("Use 'peeko pull' to download the image first.");
-                return Ok(());
+                return Err(PeekoCliError::RuntimeError("".to_string()));
             }
 
             let reader = build_image_reader(&image_path).await?;
+            reader.print_dir_tree(depth, path)?;
 
-            match reader.print_dir_tree(depth, path) {
-                Ok(()) => {
-                    println!();
-                    utils::print_info(&format!("Showing directory tree with max depth {}", depth));
-                }
-                Err(e) => {
-                    utils::print_error(&format!("Error printing directory tree: {}", e));
-                }
-            }
+            Ok(())
         }
-        None => {
-            utils::print_warning("Image with tag is required");
-        }
+        None => Err(PeekoCliError::InputError(
+            "Image with tag is required".to_string(),
+        )),
     }
-
-    Ok(())
 }
