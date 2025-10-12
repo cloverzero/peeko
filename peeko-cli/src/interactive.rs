@@ -24,22 +24,22 @@ pub async fn run() -> Result<()> {
         match choice {
             "🐳 Pull new image" => {
                 if let Err(e) = handle_pull_image().await {
-                    utils::print_error(&format!("Failed to pull image: {}", e));
+                    utils::print_error(&format!("Failed to pull image: {e}"));
                 }
             }
             "📋 List downloaded images" => {
                 if let Err(e) = commands::list::execute().await {
-                    utils::print_error(&format!("Failed to list images: {}", e));
+                    utils::print_error(&format!("Failed to list images: {e}"));
                 }
             }
             "🌳 Browse image filesystem" => {
                 if let Err(e) = handle_browse_filesystem().await {
-                    utils::print_error(&format!("Failed to browse filesystem: {}", e));
+                    utils::print_error(&format!("Failed to browse filesystem: {e}"));
                 }
             }
             "🧹 Clean downloaded images" => {
                 if let Err(e) = handle_clean_images().await {
-                    utils::print_error(&format!("Failed to clean images: {}", e));
+                    utils::print_error(&format!("Failed to clean images: {e}"));
                 }
             }
             "❌ Exit" => {

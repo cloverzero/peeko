@@ -65,7 +65,6 @@ async fn load_layer<P: AsRef<Path>>(
                 if filename_str == ".wh..wh..opq" {
                     // 删除整个目录内容
                     if let Some(parent) = path.parent() {
-                        println!("  Clearing directory: {:?}", parent);
                         vfs.clear_directory(parent);
                     }
                 } else {
@@ -73,7 +72,6 @@ async fn load_layer<P: AsRef<Path>>(
                     let target_name = filename_str.strip_prefix(".wh.").unwrap();
                     if let Some(parent) = path.parent() {
                         let target_path = parent.join(target_name);
-                        println!("  Removing (whiteout): {:?}", target_path);
                         vfs.delete_entry(&target_path);
                     }
                 }
@@ -91,16 +89,14 @@ async fn load_layer<P: AsRef<Path>>(
             ),
             tar::EntryType::Directory => vfs.add_entry(path, FileEntry::Directory { layer_index }),
             tar::EntryType::Symlink | tar::EntryType::Link => {
-                if let Ok(link_name) = header.link_name() {
-                    if let Some(link_name) = link_name {
-                        vfs.add_entry(
-                            path,
-                            FileEntry::Symlink {
-                                target: link_name.to_string_lossy().to_string(),
-                                layer_index,
-                            },
-                        );
-                    }
+                if let Ok(Some(link_name)) = header.link_name() {
+                    vfs.add_entry(
+                        path,
+                        FileEntry::Symlink {
+                            target: link_name.to_string_lossy().to_string(),
+                            layer_index,
+                        },
+                    );
                 }
             }
             _ => {}
@@ -124,8 +120,8 @@ async fn read_file_from_layer<LP: AsRef<Path>, FP: AsRef<Path>>(
         _ => return Err(ImageReaderError::UnsupportedFileType(file_type.to_string())),
     };
 
-    let target = archive.entries()?.into_iter().find(|entry| match entry {
-        Ok(entry) => entry.path().map_or(false, |path| path.eq(file_path)),
+    let target = archive.entries()?.find(|entry| match entry {
+        Ok(entry) => entry.path().is_ok_and(|path| path.eq(file_path)),
         Err(_) => false,
     });
 
@@ -214,7 +210,7 @@ impl ImageReader {
     }
 
     pub fn get_file_meatadata(&self, path: &str) -> Option<&FileEntry> {
-        self.vfs.get_entry(&PathBuf::from(path))
+        self.vfs.get_entry(PathBuf::from(path))
     }
 }
 

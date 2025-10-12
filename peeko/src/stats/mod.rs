@@ -20,9 +20,9 @@ pub fn show_statistics(vfs: &VirtualFileSystem) {
     }
 
     println!("\n=== Filesystem Statistics ===");
-    println!("Total directories: {}", dir_count);
-    println!("Total files: {}", file_count);
-    println!("Total symlinks: {}", symlink_count);
+    println!("Total directories: {dir_count}");
+    println!("Total files: {file_count}");
+    println!("Total symlinks: {symlink_count}");
     println!(
         "Total size: {:.2} MB",
         total_size as f64 / (1024.0 * 1024.0)

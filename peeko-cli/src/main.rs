@@ -90,7 +90,7 @@ async fn main() -> Result<(), error::PeekoCliError> {
             std::process::exit(2);
         }
         Err(err) => {
-            let err_msg = format!("{}", err);
+            let err_msg = format!("{err}");
             print_error(&err_msg);
             std::process::exit(1);
         }

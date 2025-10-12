@@ -34,6 +34,12 @@ impl IndicatifProgress {
     }
 }
 
+impl Default for IndicatifProgress {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[cfg(feature = "progress")]
 impl ProgressTracker for IndicatifProgress {
     fn start_download(&self, digest: &str, total_bytes: u64) {

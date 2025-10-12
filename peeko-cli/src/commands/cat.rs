@@ -9,10 +9,10 @@ use crate::utils;
 pub async fn execute(image_with_tag: &str, path: &str) -> Result<()> {
     match image_with_tag.rsplit_once(':') {
         Some((image, tag)) => {
-            let image_path = peeko::config::get_peeko_dir().join(format!("{}/{}", image, tag));
+            let image_path = peeko::config::get_peeko_dir().join(format!("{image}/{tag}"));
             // Check if image exists
             if !std::path::Path::new(&image_path).exists() {
-                utils::print_error(&format!("Image {}:{} not found locally", image, tag));
+                utils::print_error(&format!("Image {image}:{tag} not found locally"));
                 utils::print_info("Use 'peeko pull' to download the image first.");
                 return Err(PeekoCliError::RuntimeError("".to_string()));
             }
@@ -30,8 +30,8 @@ pub async fn execute(image_with_tag: &str, path: &str) -> Result<()> {
 
             let reader = build_image_reader(&image_path).await?;
 
-            let file_path = if path.starts_with('/') {
-                &path[1..]
+            let file_path = if let Some(stripped) = path.strip_prefix('/') {
+                stripped
             } else {
                 path
             };
@@ -39,7 +39,7 @@ pub async fn execute(image_with_tag: &str, path: &str) -> Result<()> {
             let content = reader.read_file(file_path).await?;
             pb.finish_and_clear();
 
-            println!("{}", content);
+            println!("{content}");
             Ok(())
         }
         None => Err(PeekoCliError::RuntimeError(

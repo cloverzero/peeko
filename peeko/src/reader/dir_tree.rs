@@ -88,7 +88,7 @@ impl DirectoryTree {
             .filter_map(|c| c.as_os_str().to_str())
             .collect();
 
-        if components.len() == 0 {
+        if components.is_empty() {
             return;
         }
         if components[0].eq("/") {
@@ -124,7 +124,7 @@ impl DirectoryTree {
             return Some(Rc::clone(&self.root));
         }
         let components: Vec<_> = path.trim_matches('/').split('/').collect();
-        if components.len() == 0 {
+        if components.is_empty() {
             return None;
         }
 
@@ -150,6 +150,12 @@ impl DirectoryTree {
 
     pub fn print(&self, max_depth: usize) {
         self.root.print(0, max_depth, true, "");
+    }
+}
+
+impl Default for DirectoryTree {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

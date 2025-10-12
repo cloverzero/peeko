@@ -48,9 +48,9 @@ pub async fn execute() -> Result<()> {
     } else {
         let len = images.len();
         let table = Table::new(images);
-        println!("{}", table);
+        println!("{table}");
         println!();
-        utils::print_info(&format!("Found {} downloaded image(s)", len));
+        utils::print_info(&format!("Found {len} downloaded image(s)"));
     }
     Ok(())
 }

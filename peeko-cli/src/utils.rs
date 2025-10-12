@@ -25,10 +25,7 @@ pub fn print_welcome() {
         style("╚══════════════════════════════════════╝").cyan()
     );
     println!();
-    println!(
-        "{} Welcome to Peeko - the interactive container image explorer!",
-        SPARKLE
-    );
+    println!("{SPARKLE} Welcome to Peeko - the interactive container image explorer!",);
 }
 
 pub fn print_success(message: &str) {

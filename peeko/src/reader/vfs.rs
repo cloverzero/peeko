@@ -47,7 +47,7 @@ impl VirtualFileSystem {
         let dir_str = dir.to_string_lossy();
 
         // 移除该目录下的所有条目
-        let dir_prefix = format!("{}/", dir_str);
+        let dir_prefix = format!("{dir_str}/");
         self.entries
             .retain(|path, _| !path.to_string_lossy().starts_with(&dir_prefix));
 
@@ -72,5 +72,11 @@ impl VirtualFileSystem {
         }
 
         tree
+    }
+}
+
+impl Default for VirtualFileSystem {
+    fn default() -> Self {
+        Self::new()
     }
 }

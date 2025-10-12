@@ -15,7 +15,7 @@ pub fn get_peeko_dir() -> PathBuf {
         }
     }
 
-    return peeko_dir.into();
+    peeko_dir.into()
 }
 
 pub fn get_concurrent_downloads() -> usize {

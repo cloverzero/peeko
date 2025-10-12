@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::path::Path;
 use std::sync::Arc;
 
 use futures_util::{StreamExt, TryStreamExt, stream};
@@ -142,9 +142,9 @@ impl RegistryClient {
                 }
             }
 
-            let mut token_url = format!("{}?service={}", realm, service);
+            let mut token_url = format!("{realm}?service={service}");
             if let Some(scope) = scope {
-                token_url = format!("{}&scope={}", token_url, scope);
+                token_url = format!("{token_url}&scope={scope}");
             }
 
             let mut request = self.http.get(token_url);
@@ -251,7 +251,7 @@ impl RegistryClient {
 
         // create folder
         let peeko_dir = config::get_peeko_dir();
-        let folder_path = peeko_dir.join(format!("{}/{}", image, tag));
+        let folder_path = peeko_dir.join(format!("{image}/{tag}"));
         fs::create_dir_all(&folder_path).await?;
 
         let manifest_path = folder_path.join("manifest.json");
@@ -267,7 +267,7 @@ impl RegistryClient {
         let tasks = oci_manifest
             .layers
             .iter()
-            .map(|layer| self.download(image, &layer, &folder_path));
+            .map(|layer| self.download(image, layer, &folder_path));
 
         stream::iter(tasks)
             .buffer_unordered(config::get_concurrent_downloads())
@@ -277,12 +277,7 @@ impl RegistryClient {
         Ok(())
     }
 
-    async fn download(
-        &self,
-        image: &str,
-        descriptor: &Descriptor,
-        dest_path: &PathBuf,
-    ) -> Result<()> {
+    async fn download(&self, image: &str, descriptor: &Descriptor, dest_path: &Path) -> Result<()> {
         let url = format!(
             "{}/v2/{}/blobs/{}",
             self.registry_url, image, descriptor.digest
@@ -322,7 +317,7 @@ impl RegistryClient {
             let first = manifest_list.manifests.first();
             return first;
         }
-        let target = manifest_list.manifests.iter().find(|m| {
+        manifest_list.manifests.iter().find(|m| {
             if let Some(arch) = &platform.architecture {
                 if m.platform.architecture.ne(arch) {
                     return false;
@@ -340,9 +335,7 @@ impl RegistryClient {
             }
 
             true
-        });
-
-        target
+        })
     }
 }
 

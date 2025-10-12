@@ -8,7 +8,7 @@ const DEFAULT_REGISTRY: &str = "https://registry-1.docker.io";
 
 pub async fn execute(image_url: &str) -> Result<()> {
     let (registry_url, image, tag) = parse_image_url(image_url)?;
-    utils::print_header(&format!("Pulling {}:{} from {}", image, tag, registry_url));
+    utils::print_header(&format!("Pulling {image}:{tag} from {registry_url}"));
 
     let mut client = RegistryClient::new(&registry_url).enable_progress();
 
@@ -20,18 +20,18 @@ pub async fn execute(image_url: &str) -> Result<()> {
 
     match client.download_image(&image, &tag, platform).await {
         Ok(_) => {
-            utils::print_success(&format!("Successfully pulled {}:{}", image, tag));
+            utils::print_success(&format!("Successfully pulled {image}:{tag}"));
 
-            let image_path = format!("{}/{}", image, tag);
+            let image_path = format!("{image}/{tag}");
             utils::print_info(&format!("Image saved to: {}", style(&image_path).cyan()));
             Ok(())
         }
         Err(RegistryError::ManifestNotFound) => {
-            utils::print_error(&format!("Image not found for {}:{}", image, tag));
+            utils::print_error(&format!("Image not found for {image}:{tag}"));
             Err(PeekoCliError::RuntimeError("".to_string()))
         }
         Err(err) => {
-            utils::print_error(&format!("Failed to pull {}:{}", image, tag));
+            utils::print_error(&format!("Failed to pull {image}:{tag}"));
             Err(err.into())
         }
     }
@@ -49,7 +49,7 @@ fn parse_image_url(image_url: &str) -> Result<(String, String, String)> {
                 Some(_) => {
                     let image = &image_url[index + 1..];
                     Ok((
-                        format!("https://{}", registry),
+                        format!("https://{registry}"),
                         image.to_string(),
                         tag.to_string(),
                     ))
@@ -62,7 +62,7 @@ fn parse_image_url(image_url: &str) -> Result<(String, String, String)> {
             }
         }
         None => {
-            let image = format!("library/{}", image_url);
+            let image = format!("library/{image_url}");
             Ok((DEFAULT_REGISTRY.to_string(), image, tag.to_string()))
         }
     }
