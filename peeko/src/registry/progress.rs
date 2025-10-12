@@ -34,6 +34,7 @@ impl IndicatifProgress {
     }
 }
 
+#[cfg(feature = "progress")]
 impl Default for IndicatifProgress {
     fn default() -> Self {
         Self::new()
