@@ -63,6 +63,7 @@ impl TreeNode {
         }
     }
 }
+
 #[derive(Debug)]
 pub struct DirectoryTree {
     pub root: Rc<TreeNode>,

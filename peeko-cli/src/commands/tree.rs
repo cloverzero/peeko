@@ -30,7 +30,7 @@ pub async fn execute(image_with_tag: &str, depth: usize, path: Option<String>) -
             }
         }
         None => {
-            utils::print_error("Image with tag is required");
+            utils::print_warning("Image with tag is required");
         }
     }
 

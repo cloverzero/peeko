@@ -50,6 +50,15 @@ enum Commands {
         #[arg(short, long)]
         path: String,
     },
+    /// Cat a file in an image
+    Cat {
+        /// Image name with tag (e.g., library/node:18-alpine, nginx:latest)
+        image: String,
+
+        /// Path to the file to cat
+        #[arg(short, long)]
+        path: String,
+    },
     /// Start interactive mode
     Interactive,
 }
@@ -73,6 +82,9 @@ async fn main() -> Result<()> {
         }
         Some(Commands::Ls { image, path }) => {
             commands::ls::execute(&image, &path).await?;
+        }
+        Some(Commands::Cat { image, path }) => {
+            commands::cat::execute(&image, &path).await?;
         }
         Some(Commands::Interactive) | None => {
             interactive::run().await?;

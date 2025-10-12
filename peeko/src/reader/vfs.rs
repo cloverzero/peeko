@@ -34,8 +34,8 @@ impl VirtualFileSystem {
         }
     }
 
-    pub fn get_entry(&self, path: &PathBuf) -> Option<&FileEntry> {
-        self.entries.get(path)
+    pub fn get_entry<P: AsRef<Path>>(&self, path: P) -> Option<&FileEntry> {
+        self.entries.get(path.as_ref())
     }
 
     pub fn delete_entry(&mut self, path: &PathBuf) {

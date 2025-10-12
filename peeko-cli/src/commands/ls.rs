@@ -23,7 +23,7 @@ pub async fn execute(image_with_tag: &str, path: &str) -> Result<()> {
             let image_path = peeko::config::get_peeko_dir().join(format!("{}/{}", image, tag));
             // Check if image exists
             if !std::path::Path::new(&image_path).exists() {
-                utils::print_error(&format!("Image {}:{} not found locally", image, tag));
+                utils::print_warning(&format!("Image {}:{} not found locally", image, tag));
                 utils::print_info("Use 'peeko pull' to download the image first.");
                 return Ok(());
             }

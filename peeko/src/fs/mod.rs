@@ -1,7 +1,6 @@
 use std::fs;
+use std::io::Result;
 use std::path::{Path, PathBuf};
-
-use anyhow::Result;
 
 use crate::config;
 

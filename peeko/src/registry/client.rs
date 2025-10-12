@@ -1,16 +1,48 @@
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use anyhow;
 use futures_util::{StreamExt, TryStreamExt, stream};
 use reqwest;
 use serde::{Deserialize, Serialize};
+use thiserror::Error;
 use tokio::fs::{self, File};
 use tokio::io::AsyncWriteExt;
 
 use super::progress::{NoopProgress, ProgressTracker};
 use crate::config;
 use crate::manifest::{self, Descriptor, Manifest, ManifestList, PlatformManifest};
+
+#[derive(Error, Debug)]
+pub enum RegistryError {
+    #[error("Header not found: {0}")]
+    HeaderNotFound(String),
+
+    #[error("Token fetch failed with status code {0}")]
+    TokenFetchFailed(u16),
+
+    #[error("Token not found")]
+    TokenNotFound,
+
+    #[error("Unsupported content type: {0}")]
+    UnsupportedContentType(String),
+
+    #[error("Manifest not found")]
+    ManifestNotFound,
+
+    #[error("Manifest parse error: {0}")]
+    ManifestParseError(#[from] serde_json::Error),
+
+    #[error("Download error with status code {0}")]
+    DownloadError(u16),
+
+    #[error("HTTP error: {0}")]
+    HttpError(#[from] reqwest::Error),
+
+    #[error("IO error: {0}")]
+    IoError(#[from] std::io::Error),
+}
+
+pub type Result<T> = std::result::Result<T, RegistryError>;
 
 #[derive(Debug, Deserialize, Serialize)]
 struct TokenResponse {
@@ -66,19 +98,21 @@ impl RegistryClient {
         self
     }
 
-    async fn authenticate_if_needed(&mut self, url: &str) -> anyhow::Result<()> {
+    async fn authenticate_if_needed(&mut self, url: &str) -> Result<()> {
         if self.auth_token.is_some() {
             return Ok(());
         }
 
         let response = self.http.head(url).send().await?;
 
+        let auth_header = "www-authenticate";
         if response.status() == 401 {
             let auth_header = response
                 .headers()
-                .get("www-authenticate")
-                .ok_or_else(|| anyhow::anyhow!("No www-authenticate header found"))?
-                .to_str()?;
+                .get(auth_header)
+                .ok_or_else(|| RegistryError::HeaderNotFound(auth_header.to_string()))?
+                .to_str()
+                .map_err(|_| RegistryError::HeaderNotFound(auth_header.to_string()))?;
 
             // 解析类似：Bearer realm="https://auth.docker.io/token",service="registry.docker.io",scope="repository:library/nginx:pull"
             let mut realm = String::new();
@@ -121,17 +155,14 @@ impl RegistryClient {
             let response = request.send().await?;
 
             if !response.status().is_success() {
-                return Err(anyhow::anyhow!(
-                    "Failed to get token: HTTP {}",
-                    response.status()
-                ));
+                return Err(RegistryError::TokenFetchFailed(response.status().as_u16()));
             }
 
             let auth_response: TokenResponse = response.json().await?;
             let token = auth_response
                 .token
                 .or(auth_response.access_token)
-                .ok_or_else(|| anyhow::anyhow!("No token found"))?;
+                .ok_or_else(|| RegistryError::TokenNotFound)?;
             self.auth_token = Some(token);
         }
 
@@ -151,7 +182,7 @@ impl RegistryClient {
         &mut self,
         image: &str,
         tag_or_digest: &str,
-    ) -> anyhow::Result<Manifest> {
+    ) -> Result<Manifest> {
         let url = format!(
             "{}/v2/{}/manifests/{}",
             self.registry_url, image, tag_or_digest
@@ -167,11 +198,13 @@ impl RegistryClient {
             .send()
             .await?;
 
+        let content_type_header = "content-type";
         let content_type = response
             .headers()
-            .get("content-type")
-            .ok_or_else(|| anyhow::anyhow!("No content-type header found"))?
-            .to_str()?;
+            .get(content_type_header)
+            .ok_or_else(|| RegistryError::HeaderNotFound(content_type_header.to_string()))?
+            .to_str()
+            .map_err(|_| RegistryError::HeaderNotFound(content_type_header.to_string()))?;
 
         match content_type {
             "application/vnd.oci.image.manifest.v1+json"
@@ -182,9 +215,8 @@ impl RegistryClient {
             | "application/vnd.docker.distribution.manifest.list.v2+json" => {
                 Ok(Manifest::OCIIndex(response.json().await?))
             }
-            _ => Err(anyhow::anyhow!(
-                "Unsupported content type: {}",
-                content_type
+            _ => Err(RegistryError::UnsupportedContentType(
+                content_type.to_string(),
             )),
         }
     }
@@ -194,7 +226,7 @@ impl RegistryClient {
         image: &str,
         tag: &str,
         platform: PlatformParam,
-    ) -> anyhow::Result<()> {
+    ) -> Result<()> {
         let manifest = self.get_image_manifest(image, tag).await?;
 
         let image_manifest = match manifest {
@@ -215,8 +247,7 @@ impl RegistryClient {
             }
         };
 
-        let oci_manifest =
-            image_manifest.ok_or_else(|| anyhow::anyhow!("No image manifest found"))?;
+        let oci_manifest = image_manifest.ok_or_else(|| RegistryError::ManifestNotFound)?;
 
         // create folder
         let peeko_dir = config::get_peeko_dir();
@@ -251,17 +282,14 @@ impl RegistryClient {
         image: &str,
         descriptor: &Descriptor,
         dest_path: &PathBuf,
-    ) -> anyhow::Result<()> {
+    ) -> Result<()> {
         let url = format!(
             "{}/v2/{}/blobs/{}",
             self.registry_url, image, descriptor.digest
         );
         let response = self.with_auth(self.http.get(url)).send().await?;
         if !response.status().is_success() {
-            return Err(anyhow::anyhow!(
-                "Failed to download layer: HTTP {}",
-                response.status()
-            ));
+            return Err(RegistryError::DownloadError(response.status().as_u16()));
         }
 
         let content_length = response.content_length().unwrap_or(0);

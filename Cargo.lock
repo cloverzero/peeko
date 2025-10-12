@@ -1158,7 +1158,6 @@ dependencies = [
 name = "peeko"
 version = "0.1.0"
 dependencies = [
- "anyhow",
  "base64",
  "dirs",
  "flate2",
@@ -1169,6 +1168,7 @@ dependencies = [
  "serde_json",
  "sha2",
  "tar",
+ "thiserror",
  "tokio",
  "zstd",
 ]

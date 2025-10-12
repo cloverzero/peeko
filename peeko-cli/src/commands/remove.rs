@@ -9,7 +9,7 @@ pub async fn execute(image_with_tag: &str) -> Result<()> {
             utils::print_success(&format!("Successfully removed {}", image_with_tag));
         }
         None => {
-            utils::print_error("Image with tag is required");
+            utils::print_warning("Image with tag is required");
         }
     }
     Ok(())

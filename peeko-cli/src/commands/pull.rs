@@ -1,6 +1,6 @@
 use anyhow::Result;
 use console::style;
-use peeko::registry::client::{PlatformParam, RegistryClient};
+use peeko::registry::client::{PlatformParam, RegistryClient, RegistryError};
 
 use crate::utils;
 
@@ -8,7 +8,7 @@ const DEFAULT_REGISTRY: &str = "https://registry-1.docker.io";
 
 pub async fn execute(image_url: &str) -> Result<()> {
     let (registry_url, image, tag) = parse_image_url(image_url).inspect_err(|err| {
-        utils::print_error(&format!("Failed to parse image URL: {}", err));
+        utils::print_warning(&format!("{}", err));
     })?;
     utils::print_header(&format!("Pulling {}:{} from {}", image, tag, registry_url));
 
@@ -27,9 +27,12 @@ pub async fn execute(image_url: &str) -> Result<()> {
             let image_path = format!("{}/{}", image, tag);
             utils::print_info(&format!("Image saved to: {}", style(&image_path).cyan()));
         }
-        Err(e) => {
-            utils::print_error(&format!("Failed to pull image: {}", e));
-            return Err(e);
+        Err(RegistryError::ManifestNotFound) => {
+            utils::print_error(&format!("Image not found for {}:{}", image, tag));
+        }
+        Err(err) => {
+            utils::print_error(&format!("Failed to pull {}:{}", image, tag));
+            utils::print_error(&format!("Error: {}", err));
         }
     }
 
