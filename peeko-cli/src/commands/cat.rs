@@ -1,4 +1,5 @@
 use std::time::Duration;
+use tokio::io::{self, AsyncWriteExt};
 
 use indicatif::{ProgressBar, ProgressStyle};
 use peeko::reader::build_image_reader;
@@ -18,7 +19,7 @@ pub async fn execute(image_with_tag: &str, path: &str) -> Result<()> {
             }
 
             // 创建一个无限 spinner
-            let pb = ProgressBar::new_spinner();
+            let pb = utils::SpinnerGuard::new(ProgressBar::new_spinner());
             pb.set_style(
                 ProgressStyle::default_spinner()
                     .template("{spinner:.green} {msg}")
@@ -36,10 +37,10 @@ pub async fn execute(image_with_tag: &str, path: &str) -> Result<()> {
                 path
             };
 
-            let content = reader.read_file(file_path).await?;
+            let bytes = reader.read_file(file_path).await?;
             pb.finish_and_clear();
 
-            println!("{content}");
+            io::stdout().write_all(&bytes).await?;
             Ok(())
         }
         None => Err(PeekoCliError::RuntimeError(

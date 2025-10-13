@@ -109,7 +109,7 @@ async fn read_file_from_layer<LP: AsRef<Path>, FP: AsRef<Path>>(
     layer_path: LP,
     file_type: &str,
     file_path: FP,
-) -> Result<String> {
+) -> Result<Vec<u8>> {
     let layer_path = layer_path.as_ref();
     let file_path = file_path.as_ref();
 
@@ -127,8 +127,8 @@ async fn read_file_from_layer<LP: AsRef<Path>, FP: AsRef<Path>>(
 
     match target {
         Some(Ok(mut entry)) => {
-            let mut buf = String::new();
-            match entry.read_to_string(&mut buf) {
+            let mut buf = Vec::new();
+            match entry.read_to_end(&mut buf) {
                 Ok(_) => Ok(buf),
                 Err(err) => Err(err.into()),
             }
@@ -165,7 +165,7 @@ pub struct ImageReader {
 }
 
 impl ImageReader {
-    pub async fn read_file<P: AsRef<Path>>(&self, path: P) -> Result<String> {
+    pub async fn read_file<P: AsRef<Path>>(&self, path: P) -> Result<Vec<u8>> {
         let path = path.as_ref();
         let entry = self
             .vfs

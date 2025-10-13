@@ -1,4 +1,7 @@
+use std::ops::Deref;
+
 use console::{Emoji, style};
+use indicatif::ProgressBar;
 
 // pub static LOOKING_GLASS: Emoji<'_, '_> = Emoji("🔍  ", "");
 // pub static TRUCK: Emoji<'_, '_> = Emoji("🚚  ", "");
@@ -70,4 +73,26 @@ pub fn print_header(title: &str) {
     print_separator();
     println!("{}", style(title).bold().cyan());
     print_separator();
+}
+
+pub struct SpinnerGuard(ProgressBar);
+
+impl SpinnerGuard {
+    pub fn new(p: ProgressBar) -> Self {
+        SpinnerGuard(p)
+    }
+}
+
+impl Drop for SpinnerGuard {
+    fn drop(&mut self) {
+        self.0.finish_and_clear();
+    }
+}
+
+impl Deref for SpinnerGuard {
+    type Target = ProgressBar;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
 }
