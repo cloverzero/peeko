@@ -32,24 +32,24 @@ jobs:
         with:
           targets: ${{ matrix.target }}
 
-      - name: Build
-        run: cargo build --release --target ${{ matrix.target }}
-
       - name: Prepare artifact (non-Windows)
         if: matrix.os != 'windows-latest'
         shell: bash
         run: |
           mkdir -p dist
           cp target/${{ matrix.target }}/release/peeko dist/
-          tar czf peeko-${{ matrix.target }}.tar.gz -C dist peeko
+          tar czf dist/peeko-${{ matrix.target }}.tar.gz -C dist peeko
+          echo "Contents of dist:"
+          ls -lh dist
 
       - name: Prepare artifact (Windows)
         if: matrix.os == 'windows-latest'
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path dist
-          Copy-Item -Path "target\${{ matrix.target }}\release\peeko.exe" -Destination dist\
-          Compress-Archive -Path dist\peeko.exe -DestinationPath peeko-${{ matrix.target }}.zip -Force
+          Copy-Item -Path "target\${{ matrix.target}}\release\peeko.exe" -Destination dist\
+          Compress-Archive -Path dist\peeko.exe -DestinationPath "dist\peeko-${{ matrix.target }}.zip" -Force
+          Get-ChildItem dist
 
 
       - name: Upload artifact
