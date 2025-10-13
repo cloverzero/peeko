@@ -255,18 +255,16 @@ impl RegistryClient {
         fs::create_dir_all(&folder_path).await?;
 
         let manifest_path = folder_path.join("manifest.json");
-        let manifest_file = std::fs::File::create(manifest_path)?;
-        let writer = std::io::BufWriter::new(manifest_file);
-        serde_json::to_writer_pretty(writer, &oci_manifest)?;
-
-        // download config
-        self.download(image, &oci_manifest.config, &folder_path)
-            .await?;
+        let mut manifest_file = File::create(manifest_path).await?;
+        let json = serde_json::to_string_pretty(&oci_manifest)?;
+        manifest_file.write_all(json.as_bytes()).await?;
+        manifest_file.flush().await?;
 
         // download layers
         let tasks = oci_manifest
             .layers
             .iter()
+            .chain(std::iter::once(&oci_manifest.config)) // download config
             .map(|layer| self.download(image, layer, &folder_path));
 
         stream::iter(tasks)
