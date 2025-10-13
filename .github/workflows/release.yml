@@ -79,9 +79,7 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: 
-            dist/**/*.tar.gz
-            dist/**/*.zip
+          files: dist/**/*.{tar.gz,zip}
           overwrite_files: true
           generate_release_notes: true
           
