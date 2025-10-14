@@ -1,8 +1,11 @@
+//! Utilities that model directory trees generated from OCI layers.
+
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::path::Path;
 use std::rc::{Rc, Weak};
 
+/// Node within a directory tree backed by reference-counted pointers.
 #[derive(Debug)]
 pub struct TreeNode {
     pub name: String,
@@ -12,6 +15,7 @@ pub struct TreeNode {
 }
 
 impl TreeNode {
+    /// Returns the full path for the node, optionally including the virtual root.
     pub fn pwd(&self, with_root: bool) -> String {
         let mut components = vec![self.name.clone()];
         let mut current = self.parent.borrow().upgrade();
@@ -32,6 +36,7 @@ impl TreeNode {
         }
     }
 
+    /// Prints this node and its descendants up to `max_depth`.
     pub fn print(&self, depth: usize, max_depth: usize, is_last: bool, prefix: &str) {
         let new_prefix = if depth == 0 {
             println!("{}", &self.name);
@@ -64,12 +69,14 @@ impl TreeNode {
     }
 }
 
+/// Directory tree built from entries in a [`VirtualFileSystem`](super::vfs::VirtualFileSystem).
 #[derive(Debug)]
 pub struct DirectoryTree {
     pub root: Rc<TreeNode>,
 }
 
 impl DirectoryTree {
+    /// Creates an empty directory tree with a root node named `/`.
     pub fn new() -> Self {
         Self {
             root: Rc::new(TreeNode {
@@ -81,6 +88,7 @@ impl DirectoryTree {
         }
     }
 
+    /// Inserts a new path into the tree, creating intermediate directories as needed.
     pub fn add_path<P: AsRef<Path>>(&self, path: P, is_dir: bool) {
         let mut components: Vec<_> = path
             .as_ref()
@@ -119,6 +127,7 @@ impl DirectoryTree {
         }
     }
 
+    /// Finds a node inside the tree by path returning a shared pointer to it.
     pub fn find(&self, path: &str) -> Option<Rc<TreeNode>> {
         if path.eq("/") {
             return Some(Rc::clone(&self.root));
@@ -144,6 +153,7 @@ impl DirectoryTree {
         Some(current)
     }
 
+    /// Prints the entire tree to stdout up to `max_depth`.
     pub fn print(&self, max_depth: usize) {
         self.root.print(0, max_depth, true, "");
     }

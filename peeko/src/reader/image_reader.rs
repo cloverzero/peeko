@@ -9,6 +9,7 @@ use super::dir_tree::DirectoryTree;
 use super::vfs::{FileEntry, VirtualFileSystem};
 use crate::manifest::{ImageManifest, get_file_type};
 
+/// Errors produced when building or using the asynchronous image reader.
 #[derive(Error, Debug)]
 pub enum ImageReaderError {
     #[error("HTTP error: {0}")]
@@ -30,6 +31,7 @@ pub enum ImageReaderError {
     NotAFile(String),
 }
 
+/// Convenient result alias that uses [`ImageReaderError`].
 pub type Result<T> = std::result::Result<T, ImageReaderError>;
 
 async fn load_manifest<P: AsRef<Path>>(image_dir: P) -> Result<ImageManifest> {
@@ -140,6 +142,11 @@ async fn read_file_from_layer<LP: AsRef<Path>, FP: AsRef<Path>>(
     }
 }
 
+/// Constructs an `ImageReader` from an OCI image directory on disk.
+///
+/// The directory must contain a `manifest.json` and all layer blobs (named
+/// `<digest>.<extension>`). Layers are replayed in order to build the virtual
+/// filesystem that powers the reader.
 pub async fn build_image_reader<P: AsRef<Path>>(image_dir: P) -> Result<ImageReader> {
     let image_dir = image_dir.as_ref();
     let manifest = load_manifest(image_dir).await?;
@@ -158,6 +165,7 @@ pub async fn build_image_reader<P: AsRef<Path>>(image_dir: P) -> Result<ImageRea
     })
 }
 
+/// Provides filesystem-style access to an OCI image's layers and metadata.
 pub struct ImageReader {
     image_dir: PathBuf,
     manifest: ImageManifest,
@@ -165,6 +173,9 @@ pub struct ImageReader {
 }
 
 impl ImageReader {
+    /// Reads the raw bytes of a file inside the reconstructed filesystem.
+    ///
+    /// Returns an error when the path does not exist or addresses a directory.
     pub async fn read_file<P: AsRef<Path>>(&self, path: P) -> Result<Vec<u8>> {
         let path = path.as_ref();
         let entry = self
@@ -186,11 +197,16 @@ impl ImageReader {
         }
     }
 
+    /// Builds an in-memory directory tree representing all files and
+    /// directories contained in the image.
     pub fn get_dir_tree(&self) -> Result<DirectoryTree> {
         let tree = self.vfs.get_directory_tree();
         Ok(tree)
     }
 
+    /// Prints the directory tree to stdout with an optional depth filter.
+    ///
+    /// When `path` is supplied the tree is rooted at that subdirectory.
     pub fn print_dir_tree(&self, depth: usize, path: Option<String>) -> Result<()> {
         let tree = self.get_dir_tree()?;
         let target_node = match &path {
@@ -209,6 +225,7 @@ impl ImageReader {
         }
     }
 
+    /// Returns metadata associated with a path in the virtual filesystem.
     pub fn get_file_meatadata(&self, path: &str) -> Option<&FileEntry> {
         self.vfs.get_entry(PathBuf::from(path))
     }

@@ -2,6 +2,11 @@ use std::fs;
 use std::io::Result;
 use std::path::{Path, PathBuf};
 
+/// Returns a list of image name/tag pairs found under the given OCI directory.
+///
+/// The directory is expected to follow the layout created by `docker pull` or
+/// this crate's [`RegistryClient`](crate::registry::RegistryClient), where
+/// images are stored under `<name>/<tag>`.
 pub fn collect_images<P: AsRef<Path>>(oci_dir: P) -> Result<Vec<String>> {
     let base_dir = oci_dir.as_ref();
     collect_image_directories(base_dir).map(|dirs| {
@@ -22,6 +27,8 @@ pub fn collect_images<P: AsRef<Path>>(oci_dir: P) -> Result<Vec<String>> {
     })
 }
 
+/// Recursively walks the given path and collects directories that contain a
+/// `manifest.json`, returning their absolute paths.
 pub fn collect_image_directories<P: AsRef<Path>>(path: P) -> Result<Vec<PathBuf>> {
     let mut result = Vec::new();
     let path = path.as_ref();
@@ -51,6 +58,7 @@ fn collect_image_directories_recursive(path: &Path, result: &mut Vec<PathBuf>) -
     Ok(())
 }
 
+/// Removes the directory storing the given `image:tag` from the OCI root.
 pub fn delete_image<P: AsRef<Path>>(oci_dir: P, image: &str, tag: &str) -> Result<()> {
     let image_path = oci_dir.as_ref().join(format!("{image}/{tag}"));
     fs::remove_dir_all(&image_path)?;
