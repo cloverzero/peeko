@@ -1,5 +1,8 @@
+//! Helpers for printing summary information about reconstructed filesystems.
+
 use crate::reader::vfs::{FileEntry, VirtualFileSystem};
 
+/// Prints aggregate counts of files, directories, symlinks and total size.
 pub fn show_statistics(vfs: &VirtualFileSystem) {
     let entries = vfs.get_entries();
 
@@ -29,6 +32,7 @@ pub fn show_statistics(vfs: &VirtualFileSystem) {
     );
 }
 
+/// Lists top-level entries (paths with a single component) in the virtual filesystem.
 pub fn list_top_level(vfs: &VirtualFileSystem) {
     println!("\n=== Top-level Entries ===");
 

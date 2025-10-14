@@ -11,6 +11,7 @@ use tokio::io::AsyncWriteExt;
 use super::progress::{NoopProgress, ProgressTracker};
 use crate::manifest::{self, Descriptor, Manifest, ManifestList, PlatformManifest};
 
+/// Failures raised while communicating with the remote registry or filesystem.
 #[derive(Error, Debug)]
 pub enum RegistryError {
     #[error("Header not found: {0}")]
@@ -41,6 +42,7 @@ pub enum RegistryError {
     IoError(#[from] std::io::Error),
 }
 
+/// Convenient result alias that uses [`RegistryError`].
 pub type Result<T> = std::result::Result<T, RegistryError>;
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -50,15 +52,20 @@ struct TokenResponse {
     pub expires_in: Option<u64>,
 }
 
+/// Optional filters used to pick a specific platform when downloading multi-arch images.
 pub struct PlatformParam {
+    /// Specific CPU architecture to fetch.
     pub architecture: Option<String>,
+    /// Specific operating system to fetch.
     pub os: Option<String>,
+    /// CPU variant (for example `arm/v7`) to fetch.
     pub variant: Option<String>,
 }
 
 const DEFAULT_REGISTRY: &str = "https://registry-1.docker.io";
 const DEFAULT_CONCURRENT_DOWNLOADS: usize = 3;
 
+/// High level client for retrieving manifests and blobs from an OCI registry.
 #[derive(Clone)]
 pub struct RegistryClient {
     http: reqwest::Client,
@@ -87,6 +94,7 @@ impl Default for RegistryClient {
 }
 
 impl RegistryClient {
+    /// Creates a client targeting the provided registry URL.
     pub fn new(registry_url: &str) -> Self {
         Self {
             registry_url: registry_url.to_string(),
@@ -94,6 +102,7 @@ impl RegistryClient {
         }
     }
 
+    /// Creates a client configured with basic-auth credentials.
     pub fn with_credentials(registry_url: &str, username: &str, password: &str) -> Self {
         Self {
             registry_url: registry_url.to_string(),
@@ -103,6 +112,7 @@ impl RegistryClient {
         }
     }
 
+    /// Creates a client configured with a pre-baked bearer token.
     pub fn with_token(registry_url: &str, token: &str) -> Self {
         Self {
             registry_url: registry_url.to_string(),
@@ -111,15 +121,18 @@ impl RegistryClient {
         }
     }
 
+    /// Sets the directory where downloaded images are written to disk.
     pub fn set_downloads_dir<P: Into<PathBuf>>(&mut self, dir: P) {
         self.oci_dir = dir.into();
     }
 
+    /// Limits the number of concurrent blob downloads.
     pub fn set_concurrent_downloads(&mut self, concurrent: usize) {
         self.concurrent_downloads = concurrent;
     }
 
     #[cfg(feature = "progress")]
+    /// Enables progress reporting using the `indicatif` progress bars.
     pub fn enable_progress(mut self) -> Self {
         self.progress = Arc::new(super::progress::IndicatifProgress::new());
         self
@@ -205,6 +218,7 @@ impl RegistryClient {
         request
     }
 
+    /// Fetches the manifest (or manifest list) for the specified image reference.
     pub async fn get_image_manifest(
         &mut self,
         image: &str,
@@ -248,6 +262,10 @@ impl RegistryClient {
         }
     }
 
+    /// Downloads an image and all of its layers into the configured downloads directory.
+    ///
+    /// When the manifest resolves to a multi-platform index the `platform`
+    /// parameter filters which architecture to download.
     pub async fn download_image(
         &mut self,
         image: &str,

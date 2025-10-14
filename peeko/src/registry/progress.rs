@@ -1,14 +1,16 @@
+//! Progress reporting abstraction used when downloading blobs from the registry.
+
 #[cfg(feature = "progress")]
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 
-// Progress trait abstraction
+/// Trait implemented by download progress reporters.
 pub trait ProgressTracker: Send + Sync {
     fn start_download(&self, digest: &str, total_bytes: u64);
     fn update(&self, digest: &str, bytes: u64);
     fn finish(&self, digest: &str);
 }
 
-// No-op implementation
+/// No-op progress tracker used when no reporting is required.
 pub struct NoopProgress;
 
 impl ProgressTracker for NoopProgress {
@@ -17,7 +19,8 @@ impl ProgressTracker for NoopProgress {
     fn finish(&self, _digest: &str) {}
 }
 
-// Indicatif implementation (only when feature enabled)
+/// Progress tracker backed by `indicatif` progress bars (only available when the
+/// `progress` feature is enabled).
 #[cfg(feature = "progress")]
 pub struct IndicatifProgress {
     multi: MultiProgress,
@@ -26,6 +29,7 @@ pub struct IndicatifProgress {
 
 #[cfg(feature = "progress")]
 impl IndicatifProgress {
+    /// Creates a new progress reporter wired to a `MultiProgress` manager.
     pub fn new() -> Self {
         Self {
             multi: MultiProgress::new(),
