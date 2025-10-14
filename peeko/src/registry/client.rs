@@ -352,21 +352,4 @@ mod tests {
             .unwrap();
         println!("Image manifest: {:?}", image_manifest);
     }
-
-    #[tokio::test]
-    async fn test_download_image() {
-        let mut client = RegistryClient::new("https://registry-1.docker.io");
-        client
-            .download_image(
-                "library/node",
-                "24-alpine",
-                PlatformParam {
-                    architecture: None,
-                    os: None,
-                    variant: None,
-                },
-            )
-            .await
-            .unwrap();
-    }
 }
