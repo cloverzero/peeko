@@ -12,9 +12,9 @@ pub enum FileEntry {
     /// Regular file along with its size and layer index.
     File { size: u64, layer_index: usize },
     /// Directory created in the given layer.
-   Directory { layer_index: usize },
+    Directory { layer_index: usize },
     /// Symbolic link pointing at `target`.
-   Symlink { target: String, layer_index: usize },
+    Symlink { target: String, layer_index: usize },
 }
 
 /// In-memory index of filesystem entries extracted from image layers.
