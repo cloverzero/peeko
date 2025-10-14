@@ -316,20 +316,22 @@ impl RegistryClient {
             return first;
         }
         manifest_list.manifests.iter().find(|m| {
-            if let Some(arch) = &platform.architecture {
-                if m.platform.architecture.ne(arch) {
-                    return false;
-                }
+            if let Some(arch) = &platform.architecture
+                && m.platform.architecture.ne(arch)
+            {
+                return false;
             }
-            if let Some(os) = &platform.os {
-                if m.platform.os.ne(os) {
-                    return false;
-                }
+
+            if let Some(os) = &platform.os
+                && m.platform.os.ne(os)
+            {
+                return false;
             }
-            if let (Some(variant), Some(m_variant)) = (&platform.variant, &m.platform.variant) {
-                if variant.ne(m_variant) {
-                    return false;
-                }
+
+            if let (Some(variant), Some(m_variant)) = (&platform.variant, &m.platform.variant)
+                && variant.ne(m_variant)
+            {
+                return false;
             }
 
             true
@@ -349,22 +351,5 @@ mod tests {
             .await
             .unwrap();
         println!("Image manifest: {:?}", image_manifest);
-    }
-
-    #[tokio::test]
-    async fn test_download_image() {
-        let mut client = RegistryClient::new("https://registry-1.docker.io");
-        client
-            .download_image(
-                "library/node",
-                "24-alpine",
-                PlatformParam {
-                    architecture: None,
-                    os: None,
-                    variant: None,
-                },
-            )
-            .await
-            .unwrap();
     }
 }

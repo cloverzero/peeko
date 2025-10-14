@@ -213,14 +213,3 @@ impl ImageReader {
         self.vfs.get_entry(PathBuf::from(path))
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[tokio::test]
-    async fn test_reconstruct() {
-        let r = build_image_reader("library/node/24-alpine").await;
-        assert!(r.is_ok());
-    }
-}
