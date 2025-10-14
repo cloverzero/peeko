@@ -130,11 +130,7 @@ impl DirectoryTree {
 
         let mut current = Rc::clone(&self.root);
         for component in components {
-            let node = current
-                .children
-                .borrow()
-                .get(component)
-                .map(Rc::clone);
+            let node = current.children.borrow().get(component).map(Rc::clone);
             match node {
                 Some(node) => {
                     current = node;
