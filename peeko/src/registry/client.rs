@@ -316,20 +316,22 @@ impl RegistryClient {
             return first;
         }
         manifest_list.manifests.iter().find(|m| {
-            if let Some(arch) = &platform.architecture {
-                if m.platform.architecture.ne(arch) {
-                    return false;
-                }
+            if let Some(arch) = &platform.architecture
+                && m.platform.architecture.ne(arch)
+            {
+                return false;
             }
-            if let Some(os) = &platform.os {
-                if m.platform.os.ne(os) {
-                    return false;
-                }
+
+            if let Some(os) = &platform.os
+                && m.platform.os.ne(os)
+            {
+                return false;
             }
-            if let (Some(variant), Some(m_variant)) = (&platform.variant, &m.platform.variant) {
-                if variant.ne(m_variant) {
-                    return false;
-                }
+
+            if let (Some(variant), Some(m_variant)) = (&platform.variant, &m.platform.variant)
+                && variant.ne(m_variant)
+            {
+                return false;
             }
 
             true
