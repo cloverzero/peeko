@@ -4,6 +4,7 @@ use indicatif::{ProgressBar, ProgressStyle};
 use peeko::reader::{build_image_reader, vfs::FileEntry};
 use tabled::{Table, Tabled, settings::Style};
 
+use crate::config;
 use crate::error::{PeekoCliError, Result};
 use crate::utils;
 
@@ -20,7 +21,7 @@ struct FileInfo {
 pub async fn execute(image_with_tag: &str, path: &str) -> Result<()> {
     match image_with_tag.rsplit_once(':') {
         Some((image, tag)) => {
-            let image_path = peeko::config::get_peeko_dir().join(format!("{image}/{tag}"));
+            let image_path = config::get_peeko_dir().join(format!("{image}/{tag}"));
             // Check if image exists
             if !std::path::Path::new(&image_path).exists() {
                 utils::print_warning(&format!("Image {image}:{tag} not found locally"));

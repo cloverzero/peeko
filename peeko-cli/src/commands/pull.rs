@@ -1,6 +1,7 @@
 use console::style;
 use peeko::registry::client::{PlatformParam, RegistryClient, RegistryError};
 
+use crate::config;
 use crate::error::{PeekoCliError, Result};
 use crate::utils;
 
@@ -11,6 +12,8 @@ pub async fn execute(image_url: &str) -> Result<()> {
     utils::print_header(&format!("Pulling {image}:{tag} from {registry_url}"));
 
     let mut client = RegistryClient::new(&registry_url).enable_progress();
+    client.set_concurrent_downloads(config::get_concurrent_downloads());
+    client.set_downloads_dir(config::get_peeko_dir());
 
     let platform = PlatformParam {
         architecture: None,

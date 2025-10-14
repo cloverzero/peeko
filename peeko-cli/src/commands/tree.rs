@@ -1,5 +1,6 @@
 use peeko::reader::build_image_reader;
 
+use crate::config;
 use crate::error::{PeekoCliError, Result};
 use crate::utils;
 
@@ -8,7 +9,7 @@ pub async fn execute(image_with_tag: &str, depth: usize, path: Option<String>) -
         Some((image, tag)) => {
             utils::print_header(&format!("Filesystem Tree for {image}:{tag}"));
 
-            let image_path = peeko::config::get_peeko_dir().join(format!("{image}/{tag}"));
+            let image_path = config::get_peeko_dir().join(format!("{image}/{tag}"));
 
             // Check if image exists
             if !std::path::Path::new(&image_path).exists() {

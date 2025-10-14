@@ -2,15 +2,13 @@ use std::fs;
 use std::io::Result;
 use std::path::{Path, PathBuf};
 
-use crate::config;
-
-pub fn collect_images() -> Result<Vec<String>> {
-    let base_dir = config::get_peeko_dir();
-    collect_image_directories(&base_dir).map(|dirs| {
+pub fn collect_images<P: AsRef<Path>>(oci_dir: P) -> Result<Vec<String>> {
+    let base_dir = oci_dir.as_ref();
+    collect_image_directories(base_dir).map(|dirs| {
         dirs.into_iter()
             .map(|dir| {
                 let mut relative_path = dir
-                    .strip_prefix(&base_dir)
+                    .strip_prefix(base_dir)
                     .expect("Must be a subdirectory of the peeko directory")
                     .to_string_lossy()
                     .to_string();
@@ -53,23 +51,8 @@ fn collect_image_directories_recursive(path: &Path, result: &mut Vec<PathBuf>) -
     Ok(())
 }
 
-pub fn delete_image(image: &str, tag: &str) -> Result<()> {
-    let image_path = config::get_peeko_dir().join(format!("{image}/{tag}"));
+pub fn delete_image<P: AsRef<Path>>(oci_dir: P, image: &str, tag: &str) -> Result<()> {
+    let image_path = oci_dir.as_ref().join(format!("{image}/{tag}"));
     fs::remove_dir_all(&image_path)?;
     Ok(())
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::config;
-
-    #[test]
-    fn test_collect_image_directories() {
-        let result = collect_image_directories(config::get_peeko_dir()).unwrap();
-        println!("{:?}", result);
-        let images = collect_images().unwrap();
-        println!("{:?}", images);
-        assert_eq!(result.len(), images.len());
-    }
 }
