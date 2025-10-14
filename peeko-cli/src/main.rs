@@ -6,6 +6,7 @@ use crate::{
 };
 
 mod commands;
+mod config;
 mod error;
 mod interactive;
 mod utils;

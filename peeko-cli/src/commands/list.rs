@@ -1,8 +1,7 @@
 use std::fs;
 use tabled::{Table, Tabled};
 
-use peeko::config;
-
+use crate::config;
 use crate::error::Result;
 use crate::utils;
 

@@ -1,4 +1,4 @@
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use futures_util::{StreamExt, TryStreamExt, stream};
@@ -9,7 +9,6 @@ use tokio::fs::{self, File};
 use tokio::io::AsyncWriteExt;
 
 use super::progress::{NoopProgress, ProgressTracker};
-use crate::config;
 use crate::manifest::{self, Descriptor, Manifest, ManifestList, PlatformManifest};
 
 #[derive(Error, Debug)]
@@ -57,39 +56,67 @@ pub struct PlatformParam {
     pub variant: Option<String>,
 }
 
+const DEFAULT_REGISTRY: &str = "https://registry-1.docker.io";
+const DEFAULT_CONCURRENT_DOWNLOADS: usize = 3;
+
 #[derive(Clone)]
 pub struct RegistryClient {
     http: reqwest::Client,
     registry_url: String,
+    oci_dir: PathBuf,
+    concurrent_downloads: usize,
     auth_token: Option<String>,
     username: Option<String>,
     password: Option<String>,
     progress: Arc<dyn ProgressTracker>,
 }
 
-impl RegistryClient {
-    pub fn new(registry_url: &str) -> Self {
+impl Default for RegistryClient {
+    fn default() -> Self {
         Self {
             http: reqwest::Client::new(),
-            registry_url: registry_url.to_string(),
+            registry_url: DEFAULT_REGISTRY.to_string(),
+            oci_dir: "./".into(),
+            concurrent_downloads: DEFAULT_CONCURRENT_DOWNLOADS,
             auth_token: None,
             username: None,
             password: None,
             progress: Arc::new(NoopProgress),
         }
     }
+}
+
+impl RegistryClient {
+    pub fn new(registry_url: &str) -> Self {
+        Self {
+            registry_url: registry_url.to_string(),
+            ..Default::default()
+        }
+    }
 
     pub fn with_credentials(registry_url: &str, username: &str, password: &str) -> Self {
-        let mut client = Self::new(registry_url);
-        client.username = Some(username.to_string());
-        client.password = Some(password.to_string());
-        client
+        Self {
+            registry_url: registry_url.to_string(),
+            username: Some(username.to_string()),
+            password: Some(password.to_string()),
+            ..Default::default()
+        }
     }
 
     pub fn with_token(registry_url: &str, token: &str) -> Self {
-        let mut client = Self::new(registry_url);
-        client.auth_token = Some(token.to_string());
-        client
+        Self {
+            registry_url: registry_url.to_string(),
+            auth_token: Some(token.to_string()),
+            ..Default::default()
+        }
+    }
+
+    pub fn set_downloads_dir<P: Into<PathBuf>>(&mut self, dir: P) {
+        self.oci_dir = dir.into();
+    }
+
+    pub fn set_concurrent_downloads(&mut self, concurrent: usize) {
+        self.concurrent_downloads = concurrent;
     }
 
     #[cfg(feature = "progress")]
@@ -249,9 +276,8 @@ impl RegistryClient {
 
         let oci_manifest = image_manifest.ok_or_else(|| RegistryError::ManifestNotFound)?;
 
-        // create folder
-        let peeko_dir = config::get_peeko_dir();
-        let folder_path = peeko_dir.join(format!("{image}/{tag}"));
+        // create folder;
+        let folder_path = self.oci_dir.join(format!("{image}/{tag}"));
         fs::create_dir_all(&folder_path).await?;
 
         let manifest_path = folder_path.join("manifest.json");
@@ -268,7 +294,7 @@ impl RegistryClient {
             .map(|layer| self.download(image, layer, &folder_path));
 
         stream::iter(tasks)
-            .buffer_unordered(config::get_concurrent_downloads())
+            .buffer_unordered(self.concurrent_downloads)
             .try_collect::<Vec<_>>()
             .await?;
 
