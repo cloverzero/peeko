@@ -1,8 +1,6 @@
 use std::env;
 use std::path::PathBuf;
 
-use dirs;
-
 const DEFAULT_PEEKO_DIR: &str = "~/.peeko";
 const DEFAULT_CONCURRENT_DOWNLOADS: &str = "4";
 

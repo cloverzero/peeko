@@ -4,11 +4,11 @@ use std::path::{Path, PathBuf};
 
 pub fn collect_images<P: AsRef<Path>>(oci_dir: P) -> Result<Vec<String>> {
     let base_dir = oci_dir.as_ref();
-    collect_image_directories(&base_dir).map(|dirs| {
+    collect_image_directories(base_dir).map(|dirs| {
         dirs.into_iter()
             .map(|dir| {
                 let mut relative_path = dir
-                    .strip_prefix(&base_dir)
+                    .strip_prefix(base_dir)
                     .expect("Must be a subdirectory of the peeko directory")
                     .to_string_lossy()
                     .to_string();
