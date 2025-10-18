@@ -226,7 +226,7 @@ impl ImageReader {
     }
 
     /// Returns metadata associated with a path in the virtual filesystem.
-    pub fn get_file_meatadata(&self, path: &str) -> Option<&FileEntry> {
+    pub fn get_file_metadata(&self, path: &str) -> Option<&FileEntry> {
         self.vfs.get_entry(PathBuf::from(path))
     }
 }
