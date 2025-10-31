@@ -1,171 +1,144 @@
 # Peeko
 
-🐳 **Peeko** is a container image filesystem exploration tool written in Rust, providing a powerful library and command-line interface that allows you to easily browse container image contents without running it.
+Peeko is a Rust toolkit for exploring container images without launching a container runtime. It ships with:
+
+- **`peeko`** – a library that downloads OCI-compliant images and reconstructs their virtual filesystems.
+- **`peeko-cli`** – a command-line interface that lets you pull images, inspect directory trees, and read files directly from the shell.
 
 ## Features
 
-### Peeko Core Library (`peeko`)
-- **Container Image Pulling**: Support for pulling images from Docker Hub and other OCI-compatible image registries
-- **Multi-format Support**: Support for TAR, GZIP, ZSTD and other compressed image layer formats
-- **OCI Standard Compliance**: Full support for OCI (Open Container Initiative) image specifications
-- **Virtual File System**: Builds a unified virtual filesystem view, handling image layer overlays
-- **Multi-platform Support**: Support for pulling and parsing multi-architecture images
-- **Concurrent Downloads**: Support for concurrent image layer downloads, improving pull efficiency
+**Library (`peeko`)**
+- Download image manifests and layers from Docker Hub or any OCI-compatible registry.
+- Parse manifests, layer metadata, and build an in-memory virtual filesystem that handles whiteouts and symlinks.
+- Read file contents on demand, print directory trees, or collect statistics about image contents.
 
-### Peeko CLI (`peeko-cli`)
-- **Interactive Interface**: User-friendly interactive command-line interface
-- **Image Management**: Pull, list, and remove local images
-- **Filesystem Browsing**: Browse image filesystem in tree or table format
-- **Progress Display**: Real-time download progress display
+**CLI (`peeko-cli`)**
+- Interactive menu for pulling and browsing images.
+- Subcommands for `pull`, `list`, `tree`, `ls`, `cat`, and `remove`.
+- Optional progress bars for layer downloads and spinners while building views.
 
 ## Installation
 
-### Build from Source
+### Clone and Build
 
 ```bash
-# Clone the repository
 git clone <repository-url>
 cd peeko
 
-# Build the entire project
+# Build everything
 cargo build --release
 
-# Or build only the CLI tool
-cargo build --release -p peeko-cli
-```
-
-### Install with Cargo
-
-```bash
+# Or install just the CLI binary
 cargo install --path peeko-cli
 ```
 
-## Quick Start
-
-### Interactive Mode (Recommended)
-
-Start interactive mode:
+### Crates.io
 
 ```bash
-cargo run
-# or
-cargo run -- interactive
+cargo install peeko-cli
 ```
 
-This will display a friendly menu interface:
+Add the library to your own project:
 
-```
-╔══════════════════════════════════════╗
-║              PEEKO CLI               ║
-║     Container Image Explorer         ║
-╚══════════════════════════════════════╝
-
-✨  Welcome to Peeko - the interactive container image explorer!
-
-? What would you like to do? ›
-  🐳 Pull new image
-  📋 List downloaded images
-  🌳 Browse image filesystem
-  📊 Show image statistics
-  🧹 Clean downloaded images
-❯ ❌ Exit
+```toml
+[dependencies]
+peeko = "0.1"
+# enable download progress bars
+peeko = { version = "0.1", features = ["progress"] }
 ```
 
-### Command Line Mode
+## Library Quick Start
 
-#### Pull an Image
+```rust
+use peeko::{
+    reader::build_image_reader,
+    registry::{PlatformParam, RegistryClient},
+};
+
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
+    let mut client = RegistryClient::new("https://registry-1.docker.io")
+        .enable_progress(); // requires the `progress` feature
+    let downloads = std::env::temp_dir().join("peeko-downloads");
+    client.set_downloads_dir(&downloads);
+    client.set_concurrent_downloads(4);
+
+    client
+        .download_image(
+            "library/alpine",
+            "latest",
+            PlatformParam {
+                architecture: None,
+                os: None,
+                variant: None,
+            },
+        )
+        .await?;
+
+    let image_dir = downloads.join("library/alpine/latest");
+    let reader = build_image_reader(&image_dir).await?;
+
+    let content = reader.read_file("etc/os-release").await?;
+    println!("{}", String::from_utf8_lossy(&content));
+
+    Ok(())
+}
+```
+
+`Cargo.toml` additions for the snippet:
+
+```toml
+[dependencies]
+anyhow = "1"
+peeko = { version = "0.1", features = ["progress"] }
+tokio = { version = "1", features = ["full"] }
+```
+
+### Library Helpers
+
+- `peeko::fs::collect_images` enumerates downloaded `image:tag` pairs under a root directory.
+- `ImageReader::get_dir_tree` / `print_dir_tree` build tree views for inspection.
+- `ImageReader::get_file_meatadata` exposes layer indices and sizes for entries.
+
+## CLI Quick Start
 
 ```bash
-# Pull with specific tag
-cargo run -- pull library/node:18-alpine
-
-# Pull from custom registry
-cargo run -- pull my-registry.com/library/nginx:latest
+peeko            # launch the interactive menu
+peeko interactive
 ```
 
-#### List Downloaded Images
+The menu walks you through pulling images, listing cached downloads, browsing trees, and (soon) cleaning up cache directories.
+
+### Common Commands
 
 ```bash
-cargo run -- list
+peeko pull library/node:18-alpine
+peeko pull ghcr.io/owner/app:latest
+
+peeko list
+
+peeko tree library/alpine:latest
+peeko tree nginx:latest --path /usr/share/nginx/html --depth 2
+
+peeko ls library/node:18-alpine --path /usr/bin
+
+peeko cat library/alpine:latest --path /etc/os-release
+
+peeko remove library/alpine:latest
 ```
 
-#### Browse Filesystem Tree
+### CLI Configuration
 
-```bash
-# Default view (depth=3, max 10 items per level)
-cargo run -- tree library/node:latest
+Environment variables let you customise behaviour:
 
-# Custom depth
-cargo run -- tree library/node:18-alpine --depth 5
+- `PEEKO_DIR` – directory for cached images (defaults to `~/.peeko`).
+- `CONCURRENT_DOWNLOADS` – number of parallel layer downloads (defaults to `4`).
 
-# Browse from specific path
-cargo run -- tree library/node:latest --path /usr/bin
-```
-
-#### List Directory Contents
-
-```bash
-cargo run -- ls library/node:latest --path /usr/bin
-```
-
-#### Remove an Image
-
-```bash
-cargo run -- remove library/node:18-alpine
-```
-
-## Usage Examples
-
-### Example 1: Pull and Explore a Node.js Image
-
-```bash
-# Start interactive mode
-cargo run
-
-# Select "🐳 Pull new image"
-# Enter: library/node
-# Tag: 18-alpine
-# Registry: (use default)
-
-# Then select "🌳 Browse image filesystem"
-# Enter the same image and tag to explore
-```
-
-### Example 2: Quick Command Line Usage
-
-```bash
-# Pull an image
-cargo run -- pull alpine:latest
-
-# Check what was downloaded
-cargo run -- list
-
-# Explore the filesystem
-cargo run -- tree library/alpine:latest
-
-# View directory contents
-cargo run -- ls library/alpine:latest --path /etc
-```
-
-## Output Examples
-
-### Filesystem Tree
+## Repository Layout
 
 ```
-────────────────────────────────────────────────────────
-Filesystem Tree for library/alpine:latest
-────────────────────────────────────────────────────────
-bin/
-├── arch
-├── ash
-├── base64
-├── busybox
-└── ... and 150 more items
-etc/
-├── alpine-release
-├── apk/
-├── group
-├── hostname
-└── ... and 25 more items
+peeko/       # core library
+peeko-cli/   # command-line interface
 ```
 
+For more detail, see `peeko/README.md` for library APIs and `peeko-cli/README.md` for CLI options.
