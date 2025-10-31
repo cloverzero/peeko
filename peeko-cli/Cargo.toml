@@ -2,6 +2,13 @@
 name = "peeko-cli"
 version = "0.1.0"
 edition = "2024"
+authors = ["Lurker <cloverzero@gmail.com>"]
+repository = "https://github.com/cloverzero/peeko"
+homepage = "https://github.com/cloverzero/peeko"
+description = "A command-line interface for exploring container images without launching a container runtime."
+license = "MIT"
+keywords = ["oci", "container", "image", "filesystem", "explorer"]
+categories = ["command-line-utilities", "filesystem"]
 
 [dependencies]
 peeko = { path = "../peeko", features = ["progress"] }
