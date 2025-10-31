@@ -49,7 +49,7 @@ pub async fn execute(image_with_tag: &str, path: &str) -> Result<()> {
                     let mut files: Vec<FileInfo> = Vec::new();
                     for child in node.children.borrow().values() {
                         let full_path_str = child.pwd(false);
-                        let entry = reader.get_file_meatadata(&full_path_str);
+                        let entry = reader.get_file_metadata(&full_path_str);
                         if let Some(entry) = entry {
                             let file_info = match entry {
                                 FileEntry::File { size, .. } => FileInfo {
